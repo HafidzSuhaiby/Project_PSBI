@@ -61,10 +61,18 @@ const ModulMateri = () => {
       const stdout = pyodide.runPython("sys.stdout.getvalue()");
       setOutput(stdout || "Program selesai dijalankan (tidak ada output print).");
 
-      // Validasi tugas menggunakan data dari currentPage
-      if (userCode.includes(currentPage.check)) {
+      // ====== SMART VALIDATOR BARU ======
+      // 1. Ubah semua petik ganda (") menjadi petik tunggal (')
+      // 2. Hapus semua spasi kosong agar pengecekan lebih fleksibel
+      const normalizedUserCode = userCode.replace(/"/g, "'").replace(/\s+/g, '');
+      const normalizedCheck = currentPage.check.replace(/"/g, "'").replace(/\s+/g, '');
+
+      // Validasi: Cek apakah kode user (yang sudah dirapikan) mengandung syarat lulus
+      if (normalizedUserCode.includes(normalizedCheck)) {
         setTaskCompleted(true);
       }
+      // ==================================
+
     } catch (err) {
       setOutput(`Error: ${err.message}`);
       setTaskCompleted(false);
