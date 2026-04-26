@@ -1,7 +1,7 @@
 export const modules = [
   {
     id: 1,
-    title: "Modul 1: Class & Object 🎮",
+    title: "Modul 1: Class & Object",
     pages: [
       {
         // Page 1: Pengenalan Konsep Analogi

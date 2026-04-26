@@ -79,18 +79,49 @@ const ModulMateri = () => {
     }
   };
 
-  // 4. NAVIGASI NEXT (Halaman & Modul)
+  // 4. NAVIGASI NEXT & SISTEM PENYIMPANAN XP
   const handleNext = () => {
+    // 1. Ambil data progress saat ini dari storage
+    const savedProgress = localStorage.getItem('pynara_progress');
+    let progress = savedProgress ? JSON.parse(savedProgress) : {
+      level: 1, xp: 0, streak: 1, accuracy: 100, completedModules: [], currentModuleId: 1
+    };
+
+    // 2. Tambahkan 50 XP setiap kali menyelesaikan satu halaman misi
+    progress.xp += 50;
+    
+    // 3. Cek apakah level naik (Tiap level butuh kelipatan 500 XP)
+    const xpTarget = progress.level * 500;
+    if (progress.xp >= xpTarget) {
+      progress.level += 1;
+      // Opsional: Anda bisa tambah alert("Level Up!") di sini nantinya
+    }
+
+    // 4. Logika perpindahan halaman
     if (currentPageIndex < currentModul.pages.length - 1) {
-      // Jika masih ada halaman di modul ini, lanjut ke halaman berikutnya
+      // Lanjut ke halaman berikutnya di modul yang sama
       setCurrentPageIndex(currentPageIndex + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else if (currentModulIndex < modules.length - 1) {
-      // Jika halaman habis, pindah ke modul berikutnya, reset halaman ke 0
-      setCurrentModulIndex(currentModulIndex + 1);
-      setCurrentPageIndex(0);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Halaman di modul ini habis -> Tandai modul ini SELESAI
+      if (!progress.completedModules.includes(currentModul.id)) {
+        progress.completedModules.push(currentModul.id);
+      }
+
+      if (currentModulIndex < modules.length - 1) {
+        // Pindah ke modul berikutnya
+        setCurrentModulIndex(currentModulIndex + 1);
+        setCurrentPageIndex(0);
+        progress.currentModuleId = modules[currentModulIndex + 1].id;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        alert("Selamat! Semua modul telah selesai!");
+        // Jika sudah mentok, arahkan user kembali ke Home bisa pakai navigate("/")
+      }
     }
+
+    // 5. Simpan kembali data yang sudah di-update ke Local Storage
+    localStorage.setItem('pynara_progress', JSON.stringify(progress));
   };
 
   return (
