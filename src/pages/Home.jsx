@@ -7,11 +7,21 @@ const Home = () => {
   const navigate = useNavigate();
   const [dailyTip, setDailyTip] = useState("");
   const [allModules, setAllModules] = useState(staticModules); // State untuk gabungan modul
+  const [session, setSession] = useState(null); // State tambahan untuk Auth
   const [userProgress, setUserProgress] = useState({
     level: 1, xp: 0, streak: 1, accuracy: 100, completedModules: [], currentModuleId: 1
   });
 
   useEffect(() => {
+    // 0. Cek Sesi Auth
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
     // 1. Ambil data dari Local Storage
     const savedProgress = localStorage.getItem('pynara_progress');
     if (savedProgress) {
@@ -24,9 +34,8 @@ const Home = () => {
     const fetchSupabaseModules = async () => {
       const { data, error } = await supabase.from('modules_ai').select('*');
       if (data && !error) {
-        // Gabungkan modul statis dengan modul dari database
         const formattedDBModules = data.map(db => ({
-          id: db.id, // Gunakan UUID dari Supabase
+          id: db.id, 
           title: `AI: ${db.title}`,
           content: db.content
         }));
@@ -35,7 +44,7 @@ const Home = () => {
     };
     fetchSupabaseModules();
 
-    // 3. Menyiapkan Terminal Tips secara acak
+    // 3. Menyiapkan Terminal Tips
     const tips = [
       "Gunakan huruf kapital untuk awalan nama Class (misal: class Hero).",
       "Gunakan kata kunci 'pass' jika Class masih kosong agar tidak error.",
@@ -43,21 +52,25 @@ const Home = () => {
       "Satu blueprint (Class) bisa digunakan untuk membuat jutaan Object nyata!"
     ];
     setDailyTip(tips[Math.floor(Math.random() * tips.length)]);
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Perhitungan Status Dinamis
   const xpTarget = userProgress.level * 500;
   const xpPercentage = Math.min((userProgress.xp / xpTarget) * 100, 100);
-  
-  // Ambil modul berikutnya dari daftar gabungan
   const nextModule = allModules.find(m => m.id === userProgress.currentModuleId) || allModules[0];
 
-  const isLoginDone = true; 
   const isOneModuleDone = userProgress.completedModules.length > 0;
   const badge2Unlocked = userProgress.level >= 2;
   const badge3Unlocked = userProgress.streak >= 7;
 
   const handleRoadmapClick = (stepId, isLocked) => {
+    if (!session) {
+      alert("🔐 Silakan login atau daftar terlebih dahulu!");
+      navigate('/login');
+      return;
+    }
+
     if (isLocked) {
       alert("🔒 Modul terkunci! Selesaikan modul sebelumnya terlebih dahulu.");
     } else {
@@ -105,21 +118,20 @@ const Home = () => {
       {/* MAIN CONTENT GRID */}
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Modul Utama Dinamis */}
         <section className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-8 md:p-10 relative overflow-hidden group hover:border-indigo-500/30 transition-colors shadow-lg min-h-[350px] flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none transition-opacity group-hover:bg-indigo-600/10"></div>
           
           <div className="absolute bottom-0 left-0 w-full h-[60%] pointer-events-none opacity-40 group-hover:opacity-100 transition-opacity duration-700 z-0">
             <svg viewBox="0 0 1000 100" className="w-full h-full" preserveAspectRatio="none">
-               <defs>
-                 <linearGradient id="fullPulse" x1="0" y1="0" x2="0" y2="1">
-                   <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.3" />
-                   <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
-                 </linearGradient>
-               </defs>
-               <path d="M0 80 L150 80 L200 20 L250 80 L450 80 L500 40 L550 80 L750 80 L800 10 L850 80 L1000 80 L1000 100 L0 100 Z" fill="url(#fullPulse)" />
-               <path d="M0 80 L150 80 L200 20 L250 80 L450 80 L500 40 L550 80 L750 80 L800 10 L850 80 L1000 80" fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0px 0px 6px rgba(14,165,233,0.8))" }} />
-               <circle cx="1000" cy="80" r="5" fill="#fff" className="animate-pulse" style={{ filter: "drop-shadow(0px 0px 10px #ffffff)" }} />
+                <defs>
+                  <linearGradient id="fullPulse" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <path d="M0 80 L150 80 L200 20 L250 80 L450 80 L500 40 L550 80 L750 80 L800 10 L850 80 L1000 80 L1000 100 L0 100 Z" fill="url(#fullPulse)" />
+                <path d="M0 80 L150 80 L200 20 L250 80 L450 80 L500 40 L550 80 L750 80 L800 10 L850 80 L1000 80" fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: "drop-shadow(0px 0px 6px rgba(14,165,233,0.8))" }} />
+                <circle cx="1000" cy="80" r="5" fill="#fff" className="animate-pulse" style={{ filter: "drop-shadow(0px 0px 10px #ffffff)" }} />
             </svg>
           </div>
 
@@ -140,9 +152,16 @@ const Home = () => {
             </div>
             
             <div className="mt-10">
-              <Link to="/materi" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-95 cursor-pointer">
-                Mulai Misi <span className="text-xl leading-none">➔</span>
-              </Link>
+              {/* Logika Tombol Dinamis: Mulai Misi atau Daftar */}
+              {session ? (
+                <Link to="/materi" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-95 cursor-pointer">
+                  Mulai Misi <span className="text-xl leading-none">➔</span>
+                </Link>
+              ) : (
+                <Link to="/register" className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition-all shadow-sm active:scale-95 cursor-pointer">
+                  Daftar Sekarang <span className="text-xl leading-none">✨</span>
+                </Link>
+              )}
             </div>
           </div>
         </section>
@@ -200,7 +219,7 @@ const Home = () => {
           </div>
         </aside>
 
-        {/* ROADMAP / PROGRESS SECTION */}
+        {/* ROADMAP SECTION */}
         <section className="lg:col-span-3 mt-2 flex flex-col gap-4">
           <div className="w-full bg-[#0d0d12] border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-inner">
              <div className="text-fuchsia-500 animate-pulse">❯_</div>

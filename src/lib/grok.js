@@ -2,8 +2,8 @@ export const analyzeWithGemini = async (extractedText) => {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY?.trim();
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
-  // Mengambil potongan teks yang cukup luas untuk mendapatkan konteks materi PDF
-  const cleanText = extractedText.slice(0, 15000).replace(/\s+/g, ' ');
+  // Membatasi teks agar tidak melebihi context window Groq (llama 3.1 8b cukup sensitif)
+  const cleanText = extractedText.slice(0, 12000).replace(/\s+/g, ' ');
 
   try {
     const response = await fetch(url, {
@@ -17,53 +17,52 @@ export const analyzeWithGemini = async (extractedText) => {
         messages: [
           { 
             role: "system", 
-            content: `Anda adalah Pynara, asisten AI pakar Python yang mengajar siswa SMK dengan gaya santai, seru, dan mudah dimengerti.
+            // PERBAIKAN: Menambahkan instruksi eksplisit tentang format JSON murni
+            content: `Anda adalah Pynara, asisten AI pakar Python untuk siswa SMK. 
+            Tugas Anda adalah merangkum teks PDF menjadi modul belajar dalam format JSON murni.
             
-            TUGAS UTAMA:
-            Ubah materi Pemrograman Berorientasi Objek (PBO) dari teks PDF menjadi modul belajar Python interaktif dalam format JSON.
+            ATURAN OUTPUT:
+            1. Output HARUS berupa JSON object yang valid.
+            2. JANGAN sertakan markdown seperti \`\`\`json di awal atau penjelasan teks di luar JSON.
+            3. Jika teks PDF tidak cukup jelas, buatkan materi dasarnya berdasarkan topik yang terdeteksi.
 
-            STRATEGI MENGAJAR SMK:
-            1. Gunakan analogi dunia nyata yang dekat dengan anak muda (Game RPG, Skin Mobile Legends, Spesifikasi HP, atau Komponen Motor).
-            2. Hindari bahasa dewa/teoretis yang membosankan. Gunakan sapaan "Bro/Sis/Kamu".
-            3. Narasi harus panjang dan jelas, menjelaskan "Kenapa ini penting?" bukan hanya "Apa itu?".
-            4. Pecah materi menjadi minimal 3-5 halaman (pages) agar tidak menumpuk.
-
-            STRUKTUR JSON WAJIB:
+            STRUKTUR JSON:
             {
-              "title": "Judul Bab yang Menarik",
+              "title": "Judul Seru",
               "pages": [
                 { 
-                  "narrative": "Penjelasan mendalam menggunakan analogi (Gunakan Markdown untuk bold/italic). Jelaskan konsep Class sebagai 'Cetakan' dan Object sebagai 'Hasil Cetakan'.", 
-                  "mission": "Instruksi praktikum sederhana, misal: 'Buatlah objek ksatria dari class Hero'.", 
-                  "defaultCode": "Template kode Python yang sudah ada sebagian.", 
-                  "check": "Kata kunci kode yang harus ada untuk lulus.", 
-                  "successMsg": "Pesan semangat saat berhasil!" 
+                  "narrative": "Penjelasan detail (Markdown support)", 
+                  "mission": "Tugas praktikum", 
+                  "defaultCode": "Template kode", 
+                  "check": "Kata kunci validasi", 
+                  "successMsg": "Pesan sukses" 
                 }
               ]
             }` 
           },
           { 
             role: "user", 
-            content: `Berdasarkan teks PDF ini: "${cleanText}", buatlah modul belajar Python. 
-            Fokus pada konsep utama yang ada di teks tersebut (seperti Class, Object, Encapsulation, atau Inheritance). 
-            Pastikan penjelasannya sangat mudah dipahami anak SMK dan berikan contoh kode yang relevan.` 
+            content: `Teks PDF: "${cleanText}". Buatlah modul minimal 3 halaman berdasarkan teks tersebut.` 
           }
         ],
+        // PERBAIKAN: Menurunkan temperature agar AI lebih patuh pada format JSON
         response_format: { type: "json_object" },
-        temperature: 0.7,
+        temperature: 0.3, 
       })
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error?.message || "Terjadi kesalahan pada API Groq");
+      // Menangani error 400 atau error API lainnya
+      throw new Error(data.error?.message || `API Error: ${response.status}`);
     }
 
-    if (data.choices && data.choices.length > 0) {
+    if (data.choices && data.choices[0].message.content) {
+      // Pastikan output adalah string JSON yang bisa di-parse
       return data.choices[0].message.content;
     } else {
-      throw new Error("AI tidak memberikan jawaban, coba lagi.");
+      throw new Error("AI tidak memberikan respon valid.");
     }
 
   } catch (error) {
