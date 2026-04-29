@@ -10,11 +10,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@monaco-editor/react": "^4.7.0",
+    "@supabase/supabase-js": "^2.105.1",
     "@tailwindcss/postcss": "^4.2.2",
+    "pdfjs-dist": "^5.7.284",
     "pyodide": "^0.29.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.14.0"
   },
   "devDependencies": {

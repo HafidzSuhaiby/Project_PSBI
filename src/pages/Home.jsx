@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { modules } from '../data/modules';
+import { modules as staticModules } from '../data/modules';
+import { supabase } from '../lib/supabaseClient'; // Import Client Supabase
 
 const Home = () => {
-  const navigate = useNavigate(); // Untuk navigasi Roadmap (Opsi 2)
-  const [dailyTip, setDailyTip] = useState(""); // Untuk Terminal Tips (Opsi 3)
+  const navigate = useNavigate();
+  const [dailyTip, setDailyTip] = useState("");
+  const [allModules, setAllModules] = useState(staticModules); // State untuk gabungan modul
   const [userProgress, setUserProgress] = useState({
     level: 1, xp: 0, streak: 1, accuracy: 100, completedModules: [], currentModuleId: 1
   });
 
   useEffect(() => {
-    // Membaca data progres dari Local Storage
+    // 1. Ambil data dari Local Storage
     const savedProgress = localStorage.getItem('pynara_progress');
     if (savedProgress) {
       setUserProgress(JSON.parse(savedProgress));
@@ -18,7 +20,22 @@ const Home = () => {
       localStorage.setItem('pynara_progress', JSON.stringify(userProgress));
     }
 
-    // --- OPSI 3: Menyiapkan Terminal Tips secara acak ---
+    // 2. Ambil modul tambahan dari Supabase
+    const fetchSupabaseModules = async () => {
+      const { data, error } = await supabase.from('modules_ai').select('*');
+      if (data && !error) {
+        // Gabungkan modul statis dengan modul dari database
+        const formattedDBModules = data.map(db => ({
+          id: db.id, // Gunakan UUID dari Supabase
+          title: `AI: ${db.title}`,
+          content: db.content
+        }));
+        setAllModules([...staticModules, ...formattedDBModules]);
+      }
+    };
+    fetchSupabaseModules();
+
+    // 3. Menyiapkan Terminal Tips secara acak
     const tips = [
       "Gunakan huruf kapital untuk awalan nama Class (misal: class Hero).",
       "Gunakan kata kunci 'pass' jika Class masih kosong agar tidak error.",
@@ -31,24 +48,19 @@ const Home = () => {
   // Perhitungan Status Dinamis
   const xpTarget = userProgress.level * 500;
   const xpPercentage = Math.min((userProgress.xp / xpTarget) * 100, 100);
-  const nextModule = modules.find(m => m.id === userProgress.currentModuleId) || modules[0];
-
-  // --- OPSI 1: Logika Gamifikasi (Misi & Badge) ---
-  // Misi 1: Login (Otomatis selesai karena membuka app)
-  const isLoginDone = true; 
-  // Misi 2: Menyelesaikan minimal 1 modul
-  const isOneModuleDone = userProgress.completedModules.length > 0;
   
-  // Badge Logic: Cek apakah level cukup untuk membuka badge
+  // Ambil modul berikutnya dari daftar gabungan
+  const nextModule = allModules.find(m => m.id === userProgress.currentModuleId) || allModules[0];
+
+  const isLoginDone = true; 
+  const isOneModuleDone = userProgress.completedModules.length > 0;
   const badge2Unlocked = userProgress.level >= 2;
   const badge3Unlocked = userProgress.streak >= 7;
 
-  // --- OPSI 2: Logika Peta Jalan (Roadmap) Interaktif ---
   const handleRoadmapClick = (stepId, isLocked) => {
     if (isLocked) {
       alert("🔒 Modul terkunci! Selesaikan modul sebelumnya terlebih dahulu.");
     } else {
-      // Jika sudah selesai atau sedang dikerjakan, izinkan masuk ke Lab
       navigate('/materi');
     }
   };
@@ -71,7 +83,6 @@ const Home = () => {
           </p>
         </div>
 
-        {/* User Quick Profile Dinamis */}
         <div className="flex items-center gap-4 bg-slate-900/50 border border-slate-800 p-4 rounded-2xl transition-all hover:bg-slate-800/50">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-fuchsia-600 flex items-center justify-center text-xl shadow-[0_0_15px_rgba(99,102,241,0.5)]">
             👾
@@ -94,7 +105,7 @@ const Home = () => {
       {/* MAIN CONTENT GRID */}
       <main className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Modul Utama Dinamis dengan Latar Belakang Grafik Detak */}
+        {/* Modul Utama Dinamis */}
         <section className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-3xl p-8 md:p-10 relative overflow-hidden group hover:border-indigo-500/30 transition-colors shadow-lg min-h-[350px] flex flex-col justify-between">
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/5 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none transition-opacity group-hover:bg-indigo-600/10"></div>
           
@@ -152,7 +163,6 @@ const Home = () => {
             </div>
           </div>
 
-          {/* OPSI 1: Misi Harian Dinamis */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-lg group hover:border-fuchsia-500/30 transition-colors">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Misi Harian</h3>
@@ -178,32 +188,20 @@ const Home = () => {
             </ul>
           </div>
 
-          {/* OPSI 1: Koleksi Badge Dinamis */}
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-lg">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Badge Explorer</h3>
             </div>
             <div className="flex gap-4">
-               {/* Selalu Terbuka */}
-               <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-2xl shadow-[0_0_20px_rgba(245,158,11,0.4)] cursor-help" title="First Blood: Memulai perjalanan PBO">
-                 🏆
-               </div>
-               {/* Badge Terbuka jika Level >= 2 */}
-               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl cursor-help transition-all duration-500 ${badge2Unlocked ? 'bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-[0_0_20px_rgba(6,182,212,0.4)]' : 'bg-slate-950 border-2 border-dashed border-slate-800 opacity-40 grayscale'}`} title={badge2Unlocked ? "Master: Mencapai Level 2" : "Terkunci: Capai Level 2"}>
-                 📱
-               </div>
-               {/* Badge Terbuka jika Streak >= 7 */}
-               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl cursor-help transition-all duration-500 ${badge3Unlocked ? 'bg-gradient-to-tr from-fuchsia-500 to-pink-600 shadow-[0_0_20px_rgba(217,70,239,0.4)]' : 'bg-slate-950 border-2 border-dashed border-slate-800 opacity-40 grayscale'}`} title={badge3Unlocked ? "On Fire: 7 Hari Streak" : "Terkunci: 7 Hari Streak"}>
-                 🔥
-               </div>
+               <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-2xl shadow-[0_0_20px_rgba(245,158,11,0.4)] cursor-help" title="First Blood">🏆</div>
+               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl cursor-help transition-all duration-500 ${badge2Unlocked ? 'bg-gradient-to-tr from-cyan-500 to-blue-600 shadow-[0_0_20px_rgba(6,182,212,0.4)]' : 'bg-slate-950 border-2 border-dashed border-slate-800 opacity-40 grayscale'}`} title="Master">📱</div>
+               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl cursor-help transition-all duration-500 ${badge3Unlocked ? 'bg-gradient-to-tr from-fuchsia-500 to-pink-600 shadow-[0_0_20px_rgba(217,70,239,0.4)]' : 'bg-slate-950 border-2 border-dashed border-slate-800 opacity-40 grayscale'}`} title="On Fire">🔥</div>
             </div>
           </div>
         </aside>
 
         {/* ROADMAP / PROGRESS SECTION */}
         <section className="lg:col-span-3 mt-2 flex flex-col gap-4">
-          
-          {/* OPSI 3: Terminal Tips */}
           <div className="w-full bg-[#0d0d12] border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-inner">
              <div className="text-fuchsia-500 animate-pulse">❯_</div>
              <p className="font-mono text-xs text-slate-400">
@@ -216,19 +214,18 @@ const Home = () => {
             <div>
               <h3 className="text-lg font-bold text-white mb-1">Progres Modul OOP</h3>
               <p className="text-sm text-slate-400">
-                Kamu sudah menyelesaikan {userProgress.completedModules.length} dari {modules.length} misi utama.
+                Kamu sudah menyelesaikan {userProgress.completedModules.length} dari {allModules.length} misi utama.
               </p>
             </div>
             
             <div className="flex items-center w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-               {modules.map((step, index) => {
+               {allModules.map((step, index) => {
                  const isDone = userProgress.completedModules.includes(step.id);
                  const isCurrent = userProgress.currentModuleId === step.id;
                  const isLocked = !isDone && !isCurrent;
 
                  return (
                    <React.Fragment key={step.id}>
-                     {/* OPSI 2: Elemen ini sekarang bisa di-klik */}
                      <button 
                         onClick={() => handleRoadmapClick(step.id, isLocked)}
                         className={`flex flex-col items-center gap-2 group min-w-[60px] transition-transform ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110'}`}
@@ -238,17 +235,15 @@ const Home = () => {
                           isCurrent ? 'bg-slate-800 border-2 border-indigo-500 text-indigo-400 animate-pulse' : 
                           'bg-slate-900 border border-slate-800 text-slate-600'
                         }`}>
-                          {isDone ? '✓' : step.id}
+                          {isDone ? '✓' : index + 1}
                         </div>
                         <span className={`text-[10px] uppercase tracking-wider font-semibold text-center leading-tight px-2 ${isLocked ? 'text-slate-600' : 'text-slate-400'}`}>
                           {step.title.split(':')[0]}
                         </span>
                      </button>
                      
-                     {index < modules.length - 1 && (
-                       <div className={`w-12 md:w-16 h-[2px] -mt-6 mx-1 ${
-                         isDone ? 'bg-gradient-to-r from-fuchsia-500 to-indigo-500' : 'bg-slate-800'
-                       }`}></div>
+                     {index < allModules.length - 1 && (
+                       <div className={`w-12 md:w-16 h-[2px] -mt-6 mx-1 ${isDone ? 'bg-gradient-to-r from-fuchsia-500 to-indigo-500' : 'bg-slate-800'}`}></div>
                      )}
                    </React.Fragment>
                  );
@@ -256,7 +251,6 @@ const Home = () => {
             </div>
           </div>
         </section>
-
       </main>
     </div>
   );

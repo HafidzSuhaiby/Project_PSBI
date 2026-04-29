@@ -1,22 +1,87 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { modules } from '../data/modules';
+import { modules as staticModules } from '../data/modules';
 import { loadPyodide } from 'pyodide';
+import { supabase } from '../lib/supabaseClient';
+import ReactMarkdown from 'react-markdown';
 
 const ModulMateri = () => {
-  // State Management (Modul dan Halaman)
-  const [currentModulIndex, setCurrentModulIndex] = useState(0);
-  const [currentPageIndex, setCurrentPageIndex] = useState(0); // Tambahan state untuk halaman
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  // State Management
+  const [currentModul, setCurrentModul] = useState(null);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [taskCompleted, setTaskCompleted] = useState(false);
   const [output, setOutput] = useState('');
   const [pyodide, setPyodide] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const editorRef = useRef(null);
-  const currentModul = modules[currentModulIndex];
-  const currentPage = currentModul.pages[currentPageIndex]; // Data spesifik per halaman
 
-  // 1. INISIALISASI MESIN PYTHON
+  // 1. LOGIKA PENGAMBILAN DATA (STATIS vs AI) - DENGAN JSON PARSING
+  useEffect(() => {
+    const fetchMateri = async () => {
+      setIsLoading(true);
+      
+      if (id && id.startsWith('ai-')) {
+        // AMBIL DARI SUPABASE
+        const realId = id.replace('ai-', '');
+        const { data, error } = await supabase
+          .from('modules_ai')
+          .select('*')
+          .eq('id', realId)
+          .single();
+
+        if (data) {
+          try {
+            // Coba parse konten sebagai JSON
+            const parsedContent = JSON.parse(data.content);
+            
+            setCurrentModul({
+              id: `ai-${data.id}`,
+              title: parsedContent.title || data.title,
+              isAI: true,
+              // Map data pages dari JSON agar sesuai struktur komponen
+              pages: parsedContent.pages.map(page => ({
+                narrative: page.narrative,
+                mission: page.mission,
+                defaultCode: page.defaultCode || "# Tulis kode Python kamu di sini\nprint('Halo Pynara!')",
+                check: page.check || "print",
+                successMsg: page.successMsg || "Bagus! Kamu telah menyelesaikan bagian ini.",
+                youtubeId: page.youtubeId || null
+              }))
+            });
+          } catch (e) {
+            // Fallback jika data di database bukan JSON (format lama)
+            setCurrentModul({
+              id: `ai-${data.id}`,
+              title: data.title,
+              isAI: true,
+              pages: [{
+                narrative: data.content,
+                mission: "Pelajari materi hasil analisis AI di atas.",
+                defaultCode: "# Tulis kode Python kamu di sini\nprint('Halo Pynara!')",
+                check: "print", 
+                successMsg: "Bagus! Kamu telah menyelesaikan eksplorasi modul AI ini."
+              }]
+            });
+          }
+        }
+      } else {
+        // AMBIL DARI MODUL STATIS (data/modules.js)
+        const targetId = id ? parseInt(id) : staticModules[0].id;
+        const localModul = staticModules.find(m => m.id === targetId);
+        setCurrentModul(localModul);
+      }
+      setIsLoading(false);
+    };
+
+    fetchMateri();
+  }, [id]);
+
+  // 2. INISIALISASI MESIN PYTHON
   useEffect(() => {
     const initPyodide = async () => {
       try {
@@ -24,28 +89,28 @@ const ModulMateri = () => {
           indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.3/full/"
         });
         setPyodide(py);
-        setIsLoading(false);
       } catch (err) {
         console.error("Gagal memuat Pyodide:", err);
-        setIsLoading(false);
       }
     };
     initPyodide();
   }, []);
 
-  // 2. RESET STATE SAAT PINDAH HALAMAN / MODUL
+  // 3. RESET STATE SAAT PINDAH HALAMAN
   useEffect(() => {
     setTaskCompleted(false);
     setOutput('');
-    // Update isi editor jika halaman berpindah
-    if (editorRef.current && currentPage) {
-      editorRef.current.setValue(currentPage.defaultCode);
+    if (editorRef.current && currentModul?.pages[currentPageIndex]) {
+      editorRef.current.setValue(currentModul.pages[currentPageIndex].defaultCode);
     }
-  }, [currentModulIndex, currentPageIndex, currentPage]);
+  }, [currentModul, currentPageIndex]);
 
-  // 3. FUNGSI JALANKAN KODE
+  // Data spesifik per halaman
+  const currentPage = currentModul?.pages[currentPageIndex];
+
+  // 4. FUNGSI JALANKAN KODE
   const runCode = async () => {
-    if (!pyodide) return;
+    if (!pyodide || !currentPage) return;
     
     const userCode = editorRef.current.getValue();
     setOutput('Sedang memproses kode...');
@@ -61,68 +126,45 @@ const ModulMateri = () => {
       const stdout = pyodide.runPython("sys.stdout.getvalue()");
       setOutput(stdout || "Program selesai dijalankan (tidak ada output print).");
 
-      // ====== SMART VALIDATOR BARU ======
-      // 1. Ubah semua petik ganda (") menjadi petik tunggal (')
-      // 2. Hapus semua spasi kosong agar pengecekan lebih fleksibel
       const normalizedUserCode = userCode.replace(/"/g, "'").replace(/\s+/g, '');
       const normalizedCheck = currentPage.check.replace(/"/g, "'").replace(/\s+/g, '');
 
-      // Validasi: Cek apakah kode user (yang sudah dirapikan) mengandung syarat lulus
       if (normalizedUserCode.includes(normalizedCheck)) {
         setTaskCompleted(true);
       }
-      // ==================================
-
     } catch (err) {
       setOutput(`Error: ${err.message}`);
       setTaskCompleted(false);
     }
   };
 
-  // 4. NAVIGASI NEXT & SISTEM PENYIMPANAN XP
+  // 5. NAVIGASI NEXT & SISTEM PENYIMPANAN XP
   const handleNext = () => {
-    // 1. Ambil data progress saat ini dari storage
     const savedProgress = localStorage.getItem('pynara_progress');
     let progress = savedProgress ? JSON.parse(savedProgress) : {
       level: 1, xp: 0, streak: 1, accuracy: 100, completedModules: [], currentModuleId: 1
     };
 
-    // 2. Tambahkan 50 XP setiap kali menyelesaikan satu halaman misi
     progress.xp += 50;
-    
-    // 3. Cek apakah level naik (Tiap level butuh kelipatan 500 XP)
     const xpTarget = progress.level * 500;
     if (progress.xp >= xpTarget) {
       progress.level += 1;
-      // Opsional: Anda bisa tambah alert("Level Up!") di sini nantinya
     }
 
-    // 4. Logika perpindahan halaman
     if (currentPageIndex < currentModul.pages.length - 1) {
-      // Lanjut ke halaman berikutnya di modul yang sama
       setCurrentPageIndex(currentPageIndex + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      // Halaman di modul ini habis -> Tandai modul ini SELESAI
       if (!progress.completedModules.includes(currentModul.id)) {
         progress.completedModules.push(currentModul.id);
       }
-
-      if (currentModulIndex < modules.length - 1) {
-        // Pindah ke modul berikutnya
-        setCurrentModulIndex(currentModulIndex + 1);
-        setCurrentPageIndex(0);
-        progress.currentModuleId = modules[currentModulIndex + 1].id;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        alert("Selamat! Semua modul telah selesai!");
-        // Jika sudah mentok, arahkan user kembali ke Home bisa pakai navigate("/")
-      }
+      localStorage.setItem('pynara_progress', JSON.stringify(progress));
+      alert("Selamat! Modul telah selesai!");
+      navigate('/'); 
     }
-
-    // 5. Simpan kembali data yang sudah di-update ke Local Storage
-    localStorage.setItem('pynara_progress', JSON.stringify(progress));
   };
+
+  if (!currentModul) return null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 font-sans pb-20 selection:bg-fuchsia-500/30">
@@ -131,52 +173,52 @@ const ModulMateri = () => {
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-xl z-[100] flex items-center justify-center">
           <div className="text-center">
             <div className="w-16 h-16 border-4 border-fuchsia-500 border-t-transparent rounded-full animate-spin mx-auto mb-6 shadow-[0_0_20px_rgba(217,70,239,0.5)]"></div>
-            <p className="text-fuchsia-400 font-mono text-sm tracking-[0.3em] animate-pulse uppercase">Memuat Mesin Python...</p>
+            <p className="text-fuchsia-400 font-mono text-sm tracking-[0.3em] animate-pulse uppercase">Memuat Materi Pynara...</p>
           </div>
         </div>
       )}
 
       <main className="max-w-5xl mx-auto p-6 lg:p-10 flex flex-col gap-12">
         
-        {/* SECTION 1: NARASI NATURAL & ANALOGI REALITAS */}
         <section className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
           
           <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-indigo-500/20 p-8 rounded-[2.5rem] relative overflow-hidden shadow-2xl">
             <div className="absolute -top-10 -right-4 p-4 opacity-5 text-[10rem] rotate-12">🐍</div>
             <p className="text-indigo-400 font-mono text-xs uppercase tracking-widest mb-3">
-              Modul {currentModul.id} - Bagian {currentPageIndex + 1} / {currentModul.pages.length}
+              {currentModul.isAI ? 'Eksplorasi AI' : `Modul ${currentModul.id}`} - Bagian {currentPageIndex + 1} / {currentModul.pages.length}
             </p>
             <h1 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tighter leading-tight relative z-10">
               {currentModul.title}
             </h1>
           </div>
 
-          {/* RENDER YOUTUBE VIDEO JIKA ADA */}
           {currentPage.youtubeId && (
             <div className="w-full aspect-video bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden shadow-2xl">
               <iframe
-                width="100%"
-                height="100%"
+                width="100%" height="100%"
                 src={`https://www.youtube.com/embed/${currentPage.youtubeId}`}
-                title="YouTube Video"
-                frameBorder="0"
+                title="YouTube Video" frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               ></iframe>
             </div>
           )}
 
-          {/* Bubble Narasi */}
           <div className="flex gap-5 md:pr-12">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 flex items-center justify-center text-2xl shrink-0 shadow-[0_0_20px_rgba(79,70,229,0.4)] border border-white/10">
               🤖
             </div>
-            <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800 p-6 md:p-8 rounded-[2rem] rounded-tl-sm text-slate-200 text-lg leading-relaxed shadow-xl relative">
-              {currentPage.narrative}
+            <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800 p-6 md:p-8 rounded-[2rem] rounded-tl-sm text-slate-200 text-lg leading-relaxed shadow-xl relative w-full">
+              {currentModul.isAI ? (
+                <div className="prose prose-invert max-w-none">
+                  <ReactMarkdown>{currentPage.narrative}</ReactMarkdown>
+                </div>
+              ) : (
+                currentPage.narrative
+              )}
             </div>
           </div>
 
-          {/* Mission Box */}
           <div className="bg-fuchsia-950/20 border-2 border-fuchsia-500/30 p-8 rounded-[2rem] shadow-[0_0_40px_rgba(217,70,239,0.05)] relative mt-4">
             <div className="absolute -top-4 left-8 bg-slate-950 border border-fuchsia-500 px-4 py-1.5 rounded-full text-[10px] font-black text-fuchsia-400 uppercase tracking-[0.2em] flex items-center gap-3">
               <span className="w-2 h-2 rounded-full bg-fuchsia-500 animate-ping"></span>
@@ -184,20 +226,15 @@ const ModulMateri = () => {
             </div>
             <p className="text-white text-xl font-bold mt-2 tracking-tight">{currentPage.mission}</p>
           </div>
-
         </section>
 
-        {/* SECTION 2: LIVE-CODING LAB */}
         <section className="flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-          
           <div className="flex items-center gap-3 text-cyan-400 uppercase text-[10px] font-black tracking-[0.3em] ml-4">
             <span className="bg-cyan-400 w-2 h-2 rounded-full shadow-[0_0_10px_rgba(34,211,238,0.8)]"></span>
             Python Execution Layer
           </div>
 
           <div className="h-[600px] rounded-[2.5rem] overflow-hidden border border-slate-800 bg-[#1e1e1e] shadow-2xl flex flex-col relative group">
-            
-            {/* Editor Header */}
             <div className="bg-[#181818] px-8 py-4 flex justify-between items-center border-b border-slate-800">
               <div className="flex items-center gap-3">
                 <div className="flex gap-1.5">
@@ -216,38 +253,27 @@ const ModulMateri = () => {
 
             <div className="flex-1 pt-4">
               <Editor
-                height="100%"
-                defaultLanguage="python"
-                theme="vs-dark"
-                value={currentPage.defaultCode}
+                height="100%" defaultLanguage="python" theme="vs-dark"
                 onMount={(editor) => (editorRef.current = editor)}
                 options={{ 
-                  fontSize: 16, 
-                  fontFamily: "'Fira Code', monospace",
-                  minimap: { enabled: false }, 
-                  scrollBeyondLastLine: false,
-                  padding: { top: 20 },
-                  lineHeight: 25,
-                  cursorBlinking: "smooth",
-                  smoothScrolling: true
+                  fontSize: 16, fontFamily: "'Fira Code', monospace",
+                  minimap: { enabled: false }, scrollBeyondLastLine: false,
+                  padding: { top: 20 }, lineHeight: 25, cursorBlinking: "smooth"
                 }}
               />
             </div>
 
-            {/* Floating Run Button */}
             <button 
               onClick={runCode}
-              className="absolute bottom-[30%] right-10 z-10 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-600 hover:from-cyan-300 hover:to-blue-500 rounded-2xl flex items-center justify-center text-slate-900 shadow-[0_10px_30px_rgba(6,182,212,0.3)] transition-all hover:scale-110 active:scale-95 group"
-              title="Jalankan Kode"
+              className="absolute bottom-[30%] right-10 z-10 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl flex items-center justify-center text-slate-900 shadow-2xl transition-all hover:scale-110 active:scale-95 group"
             >
               <span className="text-2xl group-hover:translate-x-0.5 transition-transform">▶</span>
             </button>
 
-            {/* Terminal Output */}
             <div className="h-[28%] min-h-[160px] bg-[#050505] border-t border-slate-800 p-8 font-mono text-sm overflow-y-auto">
               <div className="text-slate-600 mb-4 text-[10px] uppercase tracking-widest font-black">System Terminal</div>
               {output ? (
-                <div className={`${taskCompleted ? 'text-emerald-400' : 'text-slate-300'} leading-relaxed animate-in fade-in duration-300`}>
+                <div className={`${taskCompleted ? 'text-emerald-400' : 'text-slate-300'} leading-relaxed`}>
                   <span className="text-slate-700 mr-2">$</span> python main.py <br/>
                   <pre className="mt-2 whitespace-pre-wrap">{output}</pre>
                   {taskCompleted && <p className="mt-4 font-bold animate-pulse text-emerald-300">{currentPage.successMsg}</p>}
@@ -260,26 +286,21 @@ const ModulMateri = () => {
               )}
             </div>
           </div>
-
         </section>
 
-        {/* FOOTER NAVIGATION */}
         <div className="flex justify-center mt-4">
           <button 
             onClick={handleNext}
             disabled={!taskCompleted}
             className={`px-16 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.3em] transition-all transform active:scale-95 shadow-2xl ${
               taskCompleted 
-              ? 'bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white shadow-fuchsia-500/20 hover:-translate-y-1' 
+              ? 'bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white' 
               : 'bg-slate-900 text-slate-700 border border-slate-800 cursor-not-allowed'
             }`}
           >
-            {currentPageIndex === currentModul.pages.length - 1 && currentModulIndex === modules.length - 1 
-              ? "Selesaikan Kursus 🏆" 
-              : "Selanjutnya ➔"}
+            {currentPageIndex === currentModul.pages.length - 1 ? "Selesaikan Modul 🏆" : "Selanjutnya ➔"}
           </button>
         </div>
-
       </main>
     </div>
   );
