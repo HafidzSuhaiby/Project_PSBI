@@ -1,19 +1,37 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+// FIX MYSQL: Import supabase dihapus karena beralih ke MySQL via API
 import { Link } from 'react-router-dom';
+
+// FIX MYSQL: Definisi base URL disesuaikan dengan prefix di server.js (/api/ai)
+const API_URL = "http://localhost:5000/api/ai"; 
 
 const LibrarySiswa = () => {
   const [aiModules, setAiModules] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchModules = async () => {
-    const { data, error } = await supabase
-      .from('modules_ai')
-      .select('*')
-      .order('created_at', { ascending: false });
+    // FIX MYSQL: URL disesuaikan agar tidak 404 dan menangani struktur respons { data: [] }
+    try {
+      // Menghapus query params sementara untuk memastikan koneksi stabil
+      const response = await fetch(`${API_URL}/modules_ai`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-    if (!error) setAiModules(data);
-    setLoading(false);
+      const result = await response.json();
+      
+      // FIX: Karena backend mengirim { data: [...] }, ambil result.data
+      if (result && result.data) {
+        setAiModules(result.data);
+      } else {
+        console.error("Format data tidak sesuai:", result);
+      }
+    } catch (error) {
+      console.error("Network error:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -26,12 +44,16 @@ const LibrarySiswa = () => {
     
     if (confirmDelete) {
       try {
-        const { error } = await supabase
-          .from('modules_ai')
-          .delete()
-          .eq('id', id);
+        // FIX MYSQL: Endpoint DELETE disesuaikan dengan API_URL baru
+        const response = await fetch(`${API_URL}/modules_ai/${id}`, {
+          method: 'DELETE',
+        });
 
-        if (error) throw error;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || "Gagal menghapus");
+        }
+        
         setAiModules(aiModules.filter(item => item.id !== id));
       } catch (error) {
         alert("Gagal menghapus: " + error.message);
@@ -42,11 +64,9 @@ const LibrarySiswa = () => {
   // --- FUNGSI BARU: Untuk membersihkan tampilan teks dari JSON ---
   const getPreviewText = (content) => {
     try {
-      const parsed = JSON.parse(content);
-      // Ambil narasi dari halaman pertama saja untuk preview
-      return parsed.pages[0].narrative;
+      const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+      return parsed?.pages?.[0]?.narrative || parsed?.narrative || "Klik untuk membaca selengkapnya...";
     } catch (e) {
-      // Jika bukan JSON (materi lama), tampilkan apa adanya
       return content;
     }
   };
@@ -78,7 +98,7 @@ const LibrarySiswa = () => {
                 </button>
 
                 <Link 
-                  to={`/materi/ai-${item.id}`} 
+                  to={`/materi/ai-${item.id}`}
                   className="block p-6 bg-slate-900 border border-slate-800 rounded-[2rem] hover:border-indigo-500 transition-all h-full"
                 >
                   <div className="text-3xl mb-4">📘</div>
@@ -86,7 +106,6 @@ const LibrarySiswa = () => {
                     {item.title}
                   </h3>
                   
-                  {/* PENYELAMAT: Menggunakan getPreviewText agar JSON tidak tampil mentah */}
                   <p className="text-sm text-slate-500 line-clamp-3 leading-relaxed">
                     {getPreviewText(item.content)}
                   </p>

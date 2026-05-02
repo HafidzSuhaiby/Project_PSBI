@@ -1,50 +1,90 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { modules as staticModules } from '../data/modules';
-import { supabase } from '../lib/supabaseClient'; // Import Client Supabase
+
+// FIX MYSQL: Pastikan API_URL benar
+const API_URL = "http://localhost:5000/api"; 
 
 const Home = () => {
   const navigate = useNavigate();
   const [dailyTip, setDailyTip] = useState("");
-  const [allModules, setAllModules] = useState(staticModules); // State untuk gabungan modul
-  const [session, setSession] = useState(null); // State tambahan untuk Auth
+  const [allModules, setAllModules] = useState(staticModules); 
+  const [session, setSession] = useState(null); 
   const [userProgress, setUserProgress] = useState({
     level: 1, xp: 0, streak: 1, accuracy: 100, completedModules: [], currentModuleId: 1
   });
 
   useEffect(() => {
-    // 0. Cek Sesi Auth
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          const authRes = await fetch(`${API_URL}/auth/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const authData = await authRes.json();
+          
+          if (authData.user) {
+            setSession({ user: authData.user });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+            const res = await fetch(`${API_URL}/profiles/${authData.user.id}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
 
-    // 1. Ambil data dari Local Storage
-    const savedProgress = localStorage.getItem('pynara_progress');
-    if (savedProgress) {
-      setUserProgress(JSON.parse(savedProgress));
-    } else {
-      localStorage.setItem('pynara_progress', JSON.stringify(userProgress));
-    }
-
-    // 2. Ambil modul tambahan dari Supabase
-    const fetchSupabaseModules = async () => {
-      const { data, error } = await supabase.from('modules_ai').select('*');
-      if (data && !error) {
-        const formattedDBModules = data.map(db => ({
-          id: db.id, 
-          title: `AI: ${db.title}`,
-          content: db.content
-        }));
-        setAllModules([...staticModules, ...formattedDBModules]);
+            if (data && res.ok) {
+              setUserProgress({
+                level: data.level || 1,
+                xp: data.xp || 0,
+                streak: data.streak || 1,
+                accuracy: data.accuracy || 100,
+                completedModules: data.completed_modules || [],
+                currentModuleId: (data.completed_modules?.length || 0) + 1
+              });
+            }
+          }
+        } else {
+          const savedProgress = localStorage.getItem('pynara_progress');
+          if (savedProgress) {
+            setUserProgress(JSON.parse(savedProgress));
+          }
+        }
+      } catch (err) {
+        console.error("Fetch user data error (MySQL):", err);
       }
     };
-    fetchSupabaseModules();
 
-    // 3. Menyiapkan Terminal Tips
+    fetchUserData();
+
+    const checkSession = () => {
+      const token = localStorage.getItem('auth_token');
+      if (!token) setSession(null);
+    };
+    window.addEventListener('storage', checkSession);
+
+    // FIX MYSQL: Endpoint disesuaikan ke /ai/modules_ai (menghindari 404)
+    const fetchMySQLModules = async () => {
+      try {
+        const response = await fetch(`${API_URL}/ai/modules_ai`);
+        const result = await response.json();
+        
+        // Cek property .data sesuai struktur response backend yang umum
+        if (response.ok && (result.data || Array.isArray(result))) {
+          const rawData = Array.isArray(result) ? result : result.data;
+          
+          const formattedDBModules = rawData.map(db => ({
+            id: `ai-${db.id}`, 
+            title: `AI: ${db.title}`,
+            content: db.content
+          }));
+          setAllModules([...staticModules, ...formattedDBModules]);
+        }
+      } catch (err) {
+        console.error("Fetch AI modules error (MySQL):", err);
+      }
+    };
+    fetchMySQLModules();
+
     const tips = [
       "Gunakan huruf kapital untuk awalan nama Class (misal: class Hero).",
       "Gunakan kata kunci 'pass' jika Class masih kosong agar tidak error.",
@@ -53,12 +93,15 @@ const Home = () => {
     ];
     setDailyTip(tips[Math.floor(Math.random() * tips.length)]);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      window.removeEventListener('storage', checkSession);
+    };
   }, []);
 
   const xpTarget = userProgress.level * 500;
   const xpPercentage = Math.min((userProgress.xp / xpTarget) * 100, 100);
-  const nextModule = allModules.find(m => m.id === userProgress.currentModuleId) || allModules[0];
+  
+  const nextModule = allModules.find(m => m.id === userProgress.currentModuleId) || allModules[0] || { title: "Memuat..." };
 
   const isOneModuleDone = userProgress.completedModules.length > 0;
   const badge2Unlocked = userProgress.level >= 2;
@@ -74,7 +117,7 @@ const Home = () => {
     if (isLocked) {
       alert("🔒 Modul terkunci! Selesaikan modul sebelumnya terlebih dahulu.");
     } else {
-      navigate('/materi');
+      navigate(`/materi/${stepId}`); 
     }
   };
 
@@ -152,9 +195,8 @@ const Home = () => {
             </div>
             
             <div className="mt-10">
-              {/* Logika Tombol Dinamis: Mulai Misi atau Daftar */}
               {session ? (
-                <Link to="/materi" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-95 cursor-pointer">
+                <Link to={`/materi/${nextModule.id}`} className="inline-flex items-center gap-2 px-6 py-3 bg-white text-slate-950 font-bold rounded-xl hover:bg-indigo-50 hover:text-indigo-600 transition-all shadow-sm active:scale-95 cursor-pointer">
                   Mulai Misi <span className="text-xl leading-none">➔</span>
                 </Link>
               ) : (
@@ -222,11 +264,11 @@ const Home = () => {
         {/* ROADMAP SECTION */}
         <section className="lg:col-span-3 mt-2 flex flex-col gap-4">
           <div className="w-full bg-[#0d0d12] border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-inner">
-             <div className="text-fuchsia-500 animate-pulse">❯_</div>
-             <p className="font-mono text-xs text-slate-400">
-               <span className="text-emerald-400 font-bold">System.Hint: </span> 
-               {dailyTip}
-             </p>
+              <div className="text-fuchsia-500 animate-pulse">❯_</div>
+              <p className="font-mono text-xs text-slate-400">
+                <span className="text-emerald-400 font-bold">System.Hint: </span> 
+                {dailyTip}
+              </p>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-8 shadow-lg">
@@ -238,17 +280,17 @@ const Home = () => {
             </div>
             
             <div className="flex items-center w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-               {allModules.map((step, index) => {
-                 const isDone = userProgress.completedModules.includes(step.id);
-                 const isCurrent = userProgress.currentModuleId === step.id;
-                 const isLocked = !isDone && !isCurrent;
+                {allModules.map((step, index) => {
+                  const isDone = userProgress.completedModules.includes(step.id);
+                  const isCurrent = userProgress.currentModuleId === step.id;
+                  const isLocked = !isDone && !isCurrent;
 
-                 return (
-                   <React.Fragment key={step.id}>
-                     <button 
+                  return (
+                    <React.Fragment key={step.id}>
+                      <button 
                         onClick={() => handleRoadmapClick(step.id, isLocked)}
                         className={`flex flex-col items-center gap-2 group min-w-[60px] transition-transform ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110'}`}
-                     >
+                      >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all z-10 ${
                           isDone ? 'bg-fuchsia-500 text-white shadow-[0_0_15px_rgba(217,70,239,0.5)]' : 
                           isCurrent ? 'bg-slate-800 border-2 border-indigo-500 text-indigo-400 animate-pulse' : 
@@ -257,16 +299,16 @@ const Home = () => {
                           {isDone ? '✓' : index + 1}
                         </div>
                         <span className={`text-[10px] uppercase tracking-wider font-semibold text-center leading-tight px-2 ${isLocked ? 'text-slate-600' : 'text-slate-400'}`}>
-                          {step.title.split(':')[0]}
+                          {String(step.title).split(':')[0]}
                         </span>
-                     </button>
-                     
-                     {index < allModules.length - 1 && (
-                       <div className={`w-12 md:w-16 h-[2px] -mt-6 mx-1 ${isDone ? 'bg-gradient-to-r from-fuchsia-500 to-indigo-500' : 'bg-slate-800'}`}></div>
-                     )}
-                   </React.Fragment>
-                 );
-               })}
+                      </button>
+                      
+                      {index < allModules.length - 1 && (
+                        <div className={`w-12 md:w-16 h-[2px] -mt-6 mx-1 ${isDone ? 'bg-gradient-to-r from-fuchsia-500 to-indigo-500' : 'bg-slate-800'}`}></div>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
             </div>
           </div>
         </section>

@@ -1,6 +1,6 @@
 // src/pages/Login.jsx
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
+import { loginUser } from '../services/authService'; 
 import { useNavigate, Link } from 'react-router-dom';
 
 const Login = () => {
@@ -12,13 +12,37 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      alert(error.message);
-    } else {
-      navigate('/');
+
+    try {
+      const result = await loginUser({ email, password });
+      
+      // Berdasarkan JSON yang kamu kirim, key-nya adalah 'token'
+      if (result && result.token) {
+        // Hapus data lama jika ada untuk mencegah konflik
+        localStorage.clear(); 
+
+        // Simpan token baru
+        localStorage.setItem('auth_token', result.token);
+        
+        // Simpan session user (id & email)
+        if (result.user) {
+          localStorage.setItem('session', JSON.stringify(result.user));
+        }
+
+        // Beritahu komponen lain (Navbar/Profil) bahwa auth sudah berubah
+        window.dispatchEvent(new Event('authChange')); 
+
+        // Navigasi ke home
+        navigate('/');
+      } else {
+        alert("Gagal: Token tidak ditemukan dalam respon server.");
+      }
+
+    } catch (error) {
+      alert(error.message || "Email atau password salah.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -33,6 +57,7 @@ const Login = () => {
               className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-fuchsia-500 outline-none transition-all"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="nama@email.com"
               required
             />
           </div>
@@ -43,6 +68,7 @@ const Login = () => {
               className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-fuchsia-500 outline-none transition-all"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
             />
           </div>

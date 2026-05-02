@@ -1,12 +1,16 @@
 // src/pages/Register.jsx
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
 import { useNavigate, Link } from 'react-router-dom';
+
+// FIX MYSQL: Pastikan endpoint mencakup /auth sesuai route di server.js
+const API_URL = "http://localhost:5000/api/auth/register"; 
 
 const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  // Menambahkan field major agar sesuai dengan kebutuhan database (profiles)
+  const [major, setMajor] = useState('Pendidikan Teknik Informatika'); 
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -14,24 +18,35 @@ const Register = () => {
     e.preventDefault();
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName },
-        // Baris ini opsional, arahkan balik ke halaman login setelah konfirmasi email
-        emailRedirectTo: `${window.location.origin}/login`, 
-      },
-    });
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          password: password,
+          full_name: fullName,
+          major: major // Mengirim data major untuk tabel profiles
+        }),
+      });
 
-    if (error) {
-      alert(error.message);
-    } else {
-      // PERINGATAN: Beri tahu user untuk cek email jika fitur Confirm Email aktif
-      alert('Registrasi berhasil! JIKA konfirmasi email aktif, silakan klik link di email Anda sebelum login.');
-      navigate('/login');
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Menampilkan pesan error spesifik dari backend (misal: "User sudah terdaftar")
+        alert(result.error || result.message || 'Terjadi kesalahan saat registrasi.');
+      } else {
+        alert('Registrasi berhasil! Silakan login dengan akun baru Anda.');
+        navigate('/login');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('Gagal terhubung ke server. Pastikan backend sudah menyala di port 5000.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -47,6 +62,7 @@ const Register = () => {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
+              placeholder="Masukkan nama lengkap"
             />
           </div>
           <div>
@@ -57,6 +73,7 @@ const Register = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              placeholder="nama@email.com"
             />
           </div>
           <div>
@@ -67,6 +84,7 @@ const Register = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              placeholder="••••••••"
             />
           </div>
           <button

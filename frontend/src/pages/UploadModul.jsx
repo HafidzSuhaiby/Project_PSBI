@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import { analyzeWithGemini } from '../lib/grok';
 import * as pdfjsLib from 'pdfjs-dist';
 
 /**
@@ -9,6 +7,9 @@ import * as pdfjsLib from 'pdfjs-dist';
  */
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
+// FIX: Definisikan base URL API backend Anda (Sudah mengandung /api/ai)
+const API_URL = "http://localhost:5000/api/ai";
 
 const UploadModul = () => {
   const [file, setFile] = useState(null);
@@ -54,28 +55,48 @@ const UploadModul = () => {
 
       setStatus("Pynara sedang membedah bab modul...");
       
-      // PENTING: Pastikan prompt di grok.js sudah diatur untuk mengembalikan JSON
-      const aiResponse = await analyzeWithGemini(extractedText);
+      // SINKRONISASI: Menghapus /ai tambahan agar tidak terjadi double path (/api/ai/ai/analyze)
+      const aiRequest = await fetch(`${API_URL}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: extractedText }) 
+      });
 
-      if (aiResponse) {
-        // Mengubah string JSON dari AI menjadi Object JavaScript
-        const parsedData = JSON.parse(aiResponse);
+      // Validasi respon sebelum parsing JSON
+      if (!aiRequest.ok) {
+        const errorText = await aiRequest.text();
+        throw new Error(`Server Error (${aiRequest.status}): ${errorText}`);
+      }
+
+      const aiData = await aiRequest.json();
+
+      if (aiData.success && aiData.data) {
+        const parsedData = aiData.data; 
         setAiMateriResult(parsedData);
         
         setStatus("Menyimpan ke library...");
 
-        const { error } = await supabase
-          .from('modules_ai')
-          .insert([{ 
+        // SINKRONISASI: Memanggil endpoint /modules_ai sesuai di aiRoutes.js
+        const response = await fetch(`${API_URL}/modules_ai`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
             title: parsedData.title || file.name.replace(".pdf", ""), 
-            content: aiResponse // Simpan string aslinya untuk database
-          }]);
+            content: JSON.stringify(parsedData) 
+          })
+        });
 
-        if (!error) {
+        const result = await response.json();
+
+        if (response.ok) {
           setStatus("✅ Modul Berhasil Dibuat!");
         } else {
-          throw error;
+          throw new Error(result.message || "Gagal menyimpan ke database MySQL.");
         }
+      } else {
+        throw new Error(aiData.error || "Gagal mendapatkan respon dari AI.");
       }
     } catch (error) {
       console.error("Upload Error:", error);
@@ -126,17 +147,15 @@ const UploadModul = () => {
         {/* RENDER HASIL PER BAB/BAGIAN */}
         {aiMateriResult && (
         <div className="mt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Menampilkan Judul Bab */}
             <div className="flex items-center gap-4 mb-8">
             <div className="h-10 w-1 bg-indigo-500 rounded-full"></div>
             <h2 className="text-2xl font-bold">
-                {typeof aiMateriResult === 'string' ? JSON.parse(aiMateriResult).title : aiMateriResult.title}
+                {aiMateriResult.title}
             </h2>
             </div>
             
             <div className="grid gap-6">
-            {/* Kita ambil array 'pages' dari hasil AI */}
-            {(typeof aiMateriResult === 'string' ? JSON.parse(aiMateriResult).pages : aiMateriResult.pages)?.map((page, index) => (
+            {aiMateriResult.pages?.map((page, index) => (
                 <div key={index} className="p-8 bg-slate-900 border border-slate-800 rounded-[2rem] shadow-sm">
                 <div className="flex justify-between items-center mb-4">
                     <span className="px-4 py-1 bg-indigo-500/10 text-indigo-400 text-xs font-mono rounded-full border border-indigo-500/20">
@@ -146,7 +165,7 @@ const UploadModul = () => {
                 
                 {/* Penjelasan Materi */}
                 <div className="prose prose-invert max-w-none mb-6 text-slate-300">
-                    <p className="leading-relaxed">{page.narrative}</p>
+                    <p className="leading-relaxed whitespace-pre-wrap">{page.narrative}</p>
                 </div>
 
                 {/* Contoh Kode jika ada */}
