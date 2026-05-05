@@ -32,14 +32,22 @@ const Home = () => {
             });
             const data = await res.json();
 
-            if (data && res.ok) {
+            // FIX: Pastikan data profil diambil dengan benar sesuai struktur response API
+            const profile = data.data || data;
+
+            if (profile && res.ok) {
+              const completedArr = Array.isArray(profile.completed_modules) 
+                ? profile.completed_modules 
+                : JSON.parse(profile.completed_modules || "[]");
+
               setUserProgress({
-                level: data.level || 1,
-                xp: data.xp || 0,
-                streak: data.streak || 1,
-                accuracy: data.accuracy || 100,
-                completedModules: data.completed_modules || [],
-                currentModuleId: (data.completed_modules?.length || 0) + 1
+                level: profile.level || 1,
+                xp: profile.xp || 0,
+                streak: profile.streak || 1,
+                accuracy: profile.accuracy || 100,
+                completedModules: completedArr,
+                // FIX: Ambil current_module_id langsung dari database agar sinkron saat kembali
+                currentModuleId: profile.current_module_id || (completedArr.length + 1)
               });
             }
           }
@@ -101,7 +109,8 @@ const Home = () => {
   const xpTarget = userProgress.level * 500;
   const xpPercentage = Math.min((userProgress.xp / xpTarget) * 100, 100);
   
-  const nextModule = allModules.find(m => m.id === userProgress.currentModuleId) || allModules[0] || { title: "Memuat..." };
+  // FIX: Sinkronkan tipe data ID (string vs int) agar pencarian nextModule akurat
+  const nextModule = allModules.find(m => String(m.id) === String(userProgress.currentModuleId)) || allModules[0] || { title: "Memuat..." };
 
   const isOneModuleDone = userProgress.completedModules.length > 0;
   const badge2Unlocked = userProgress.level >= 2;
@@ -281,8 +290,8 @@ const Home = () => {
             
             <div className="flex items-center w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
                 {allModules.map((step, index) => {
-                  const isDone = userProgress.completedModules.includes(step.id);
-                  const isCurrent = userProgress.currentModuleId === step.id;
+                  const isDone = userProgress.completedModules.includes(String(step.id));
+                  const isCurrent = String(userProgress.currentModuleId) === String(step.id);
                   const isLocked = !isDone && !isCurrent;
 
                   return (
