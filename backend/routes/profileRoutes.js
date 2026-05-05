@@ -6,6 +6,6 @@ const router = express.Router();
 
 // Route untuk mendapatkan data profil & update progres
 router.get('/:id', protect, getProfileById);
-router.patch('/:id', protect, updateProfile);
+router.put('/:id', protect, updateProfile);
 
 export default router;

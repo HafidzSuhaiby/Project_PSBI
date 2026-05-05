@@ -53,7 +53,7 @@ function Navbar() {
           <>
             <Link to="/materi" className={`${isActive('/materi') ? 'text-emerald-400' : 'text-slate-400'} hover:text-white`}>Modul Materi</Link>
             <Link to="/library" className={`${isActive('/library') ? 'text-indigo-400' : 'text-slate-400'} hover:text-white`}>Library</Link>
-            <Link to="/upload" className="text-amber-400 hover:text-amber-300 flex items-center gap-1.5"><span>✨</span> AI Upload</Link>
+            <Link to="/upload" className="text-amber-400 hover:text-amber-300 flex items-center gap-1.5"><span></span> AI Upload</Link>
             <Link to="/profil" className="bg-slate-900 px-5 py-2 rounded-2xl border border-slate-800 text-slate-300">👤 Profil</Link>
           </>
         ) : (

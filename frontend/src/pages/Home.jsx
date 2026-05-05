@@ -18,106 +18,130 @@ const Home = () => {
     const fetchUserData = async () => {
       try {
         const token = localStorage.getItem('auth_token');
-        if (token) {
-          const authRes = await fetch(`${API_URL}/auth/me`, {
+        if (!token) return;
+
+        // 1. Ambil Data Auth
+        const authRes = await fetch(`${API_URL}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const authData = await authRes.json();
+        const userData = authData.data || authData.user;
+
+        if (userData) {
+          setSession(userData);
+          
+          // 2. Ambil Data Profile
+          const res = await fetch(`${API_URL}/profiles/${userData.id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          const authData = await authRes.json();
           
-          if (authData.user) {
-            setSession({ user: authData.user });
+          if (!res.ok) throw new Error("Profile tidak ditemukan (404)");
 
-            const res = await fetch(`${API_URL}/profiles/${authData.user.id}`, {
-              headers: { 'Authorization': `Bearer ${token}` }
+          const resJson = await res.json();
+          const profile = resJson.data || resJson;
+
+          let currentXP = Number(profile.xp) || 0;
+          let currentLevel = Number(profile.level) || 1;
+
+          // --- LOGIKA CLAIM DAILY XP ---
+          // Kita panggil fungsi ini di sini agar XP bertambah saat login/refresh pertama kali
+          await claimDailyXP(currentXP, userData.id);
+          // Update lokal agar UI sinkron (tambah 10)
+          currentXP += 10;
+
+          // --- LOGIKA AUTO LEVEL UP ---
+          const xpTarget = currentLevel * 100;
+          if (currentXP >= xpTarget) {
+            const nextLevel = currentLevel + 1;
+            const leftoverXP = currentXP - xpTarget;
+
+            await fetch(`${API_URL}/profiles/${userData.id}`, {
+              method: 'PUT',
+              headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ level: nextLevel, xp: leftoverXP })
             });
-            const data = await res.json();
-
-            // FIX: Pastikan data profil diambil dengan benar sesuai struktur response API
-            const profile = data.data || data;
-
-            if (profile && res.ok) {
-              const completedArr = Array.isArray(profile.completed_modules) 
-                ? profile.completed_modules 
-                : JSON.parse(profile.completed_modules || "[]");
-
-              setUserProgress({
-                level: profile.level || 1,
-                xp: profile.xp || 0,
-                streak: profile.streak || 1,
-                accuracy: profile.accuracy || 100,
-                completedModules: completedArr,
-                // FIX: Ambil current_module_id langsung dari database agar sinkron saat kembali
-                currentModuleId: profile.current_module_id || (completedArr.length + 1)
-              });
-            }
+            
+            currentLevel = nextLevel;
+            currentXP = leftoverXP;
           }
-        } else {
-          const savedProgress = localStorage.getItem('pynara_progress');
-          if (savedProgress) {
-            setUserProgress(JSON.parse(savedProgress));
-          }
+
+          // Set State
+          const completedArr = Array.isArray(profile.completed_modules) 
+            ? profile.completed_modules 
+            : JSON.parse(profile.completed_modules || "[]");
+
+          setUserProgress({
+            level: currentLevel,
+            xp: currentXP,
+            streak: Number(profile.streak) || 0,
+            accuracy: Number(profile.accuracy) || 0,
+            completedModules: completedArr,
+            currentModuleId: profile.current_module_id || (completedArr.length + 1)
+          });
         }
       } catch (err) {
-        console.error("Fetch user data error (MySQL):", err);
+        console.error("Gagal sinkronisasi data:", err);
       }
     };
 
-    fetchUserData();
-
-    const checkSession = () => {
+  // Definisikan fungsi claim di luar fetchUserData atau di dalamnya tapi pastikan DIPANGGIL
+  const claimDailyXP = async (currentXP, profileId) => {
+    try {
       const token = localStorage.getItem('auth_token');
-      if (!token) setSession(null);
-    };
-    window.addEventListener('storage', checkSession);
+      const updatedXP = currentXP + 10; 
 
-    // FIX MYSQL: Endpoint disesuaikan ke /ai/modules_ai (menghindari 404)
-    const fetchMySQLModules = async () => {
-      try {
-        const response = await fetch(`${API_URL}/ai/modules_ai`);
-        const result = await response.json();
-        
-        // Cek property .data sesuai struktur response backend yang umum
-        if (response.ok && (result.data || Array.isArray(result))) {
-          const rawData = Array.isArray(result) ? result : result.data;
-          
-          const formattedDBModules = rawData.map(db => ({
-            id: `ai-${db.id}`, 
-            title: `AI: ${db.title}`,
-            content: db.content
-          }));
-          setAllModules([...staticModules, ...formattedDBModules]);
-        }
-      } catch (err) {
-        console.error("Fetch AI modules error (MySQL):", err);
-      }
-    };
-    fetchMySQLModules();
+      await fetch(`${API_URL}/profiles/${profileId}`, {
+        method: 'PUT', // Coba ganti ke PUT jika PATCH 404
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ xp: updatedXP })
+      });
+    } catch (error) {
+      console.error("Gagal mencatat XP harian:", error);
+    }
+  };
 
-    const tips = [
-      "Gunakan huruf kapital untuk awalan nama Class (misal: class Hero).",
-      "Gunakan kata kunci 'pass' jika Class masih kosong agar tidak error.",
-      "Fungsi __init__ berguna untuk memasukkan atribut saat objek pertama kali dibuat.",
-      "Satu blueprint (Class) bisa digunakan untuk membuat jutaan Object nyata!"
-    ];
-    setDailyTip(tips[Math.floor(Math.random() * tips.length)]);
+  fetchUserData();
+}, []);
 
-    return () => {
-      window.removeEventListener('storage', checkSession);
-    };
-  }, []);
-
-  const xpTarget = userProgress.level * 500;
-  const xpPercentage = Math.min((userProgress.xp / xpTarget) * 100, 100);
+  const xpTarget = (Number(userProgress.level) || 1) * 100; // FIX: Pastikan target XP valid
+  const xpPercentage = Math.min((Number(userProgress.xp) / xpTarget) * 100, 100); // FIX: Pastikan progress bar akurat sesuai data database
   
   // FIX: Sinkronkan tipe data ID (string vs int) agar pencarian nextModule akurat
   const nextModule = allModules.find(m => String(m.id) === String(userProgress.currentModuleId)) || allModules[0] || { title: "Memuat..." };
 
-  const isOneModuleDone = userProgress.completedModules.length > 0;
+  // DINAMIS: Misi harian dicek berdasarkan data userProgress dari database
+  const dailyMissions = [
+    {
+      id: 1,
+      text: "Akses Lab hari ini",
+      xp: 10,
+      isDone: !!session 
+    },
+    {
+      id: 2,
+      text: "Selesaikan 1 Modul",
+      xp: 50,
+      isDone: userProgress.completedModules.length > 0 
+    },
+    {
+      id: 3,
+      text: "Capai Akurasi 100%",
+      xp: 20,
+      isDone: userProgress.accuracy >= 100 
+    }
+  ];
+
   const badge2Unlocked = userProgress.level >= 2;
   const badge3Unlocked = userProgress.streak >= 7;
 
   const handleRoadmapClick = (stepId, isLocked) => {
-    if (!session) {
+    if (!session && !localStorage.getItem('auth_token')) {
       alert("🔐 Silakan login atau daftar terlebih dahulu!");
       navigate('/login');
       return;
@@ -157,7 +181,7 @@ const Home = () => {
             <div className="w-full h-2 bg-slate-800 rounded-full mt-2 overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-indigo-500 to-fuchsia-500 rounded-full transition-all duration-1000 ease-out" 
-                style={{ width: `${xpPercentage}%` }}
+                style={{ width: `${xpPercentage}%` }} 
               ></div>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 text-right font-mono">
@@ -238,23 +262,30 @@ const Home = () => {
               <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">Misi Harian</h3>
             </div>
             <ul className="flex flex-col gap-3">
-              <li className="flex items-center gap-3 p-3 bg-slate-950/80 rounded-xl border border-emerald-500/20">
-                <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs shadow-[0_0_10px_rgba(16,185,129,0.2)]">✓</div>
-                <div className="flex-1">
-                  <p className="text-sm text-slate-200 line-through opacity-70">Akses Lab hari ini</p>
-                  <p className="text-[10px] text-emerald-400 font-mono">+10 XP</p>
-                </div>
-              </li>
-              
-              <li className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isOneModuleDone ? 'bg-slate-950/80 border-emerald-500/20' : 'bg-slate-950/50 border-slate-800/50'}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${isOneModuleDone ? 'bg-emerald-500/20 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'border-2 border-slate-600'}`}>
-                  {isOneModuleDone ? '✓' : ''}
-                </div>
-                <div className="flex-1">
-                  <p className={`text-sm font-medium ${isOneModuleDone ? 'text-slate-200 line-through opacity-70' : 'text-white'}`}>Selesaikan 1 Modul</p>
-                  <p className={`text-[10px] font-mono font-bold ${isOneModuleDone ? 'text-emerald-400' : 'text-fuchsia-400'}`}>+50 XP</p>
-                </div>
-              </li>
+              {dailyMissions.map((mission) => (
+                <li 
+                  key={mission.id} 
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                    mission.isDone ? 'bg-slate-950/80 border-emerald-500/20' : 'bg-slate-950/50 border-slate-800/50'
+                  }`}
+                >
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                    mission.isDone 
+                      ? 'bg-emerald-500/20 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                      : 'border-2 border-slate-600 text-transparent'
+                  }`}>
+                    {mission.isDone ? '✓' : ''}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${mission.isDone ? 'text-slate-200 line-through opacity-70' : 'text-white'}`}>
+                      {mission.text}
+                    </p>
+                    <p className={`text-[10px] font-mono font-bold ${mission.isDone ? 'text-emerald-400' : 'text-fuchsia-400'}`}>
+                      +{mission.xp} XP
+                    </p>
+                  </div>
+                </li>
+              ))}
             </ul>
           </div>
 

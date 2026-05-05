@@ -21,6 +21,10 @@ const ModulMateri = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [code, setCode] = useState(""); 
   const [userId, setUserId] = useState(null);
+
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [answers, setAnswers] = useState({});
+  const [score, setScore] = useState(null);
   
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
@@ -33,9 +37,9 @@ const ModulMateri = () => {
   
   const editorRef = useRef(null);
   const chatEndRef = useRef(null);
-  const nodeRef = useRef(null); // FIX: Ref untuk draggable
-  const nodeRefChat = useRef(null); // Ref untuk jendela chat
-  const nodeRefButton = useRef(null); // Ref untuk tombol bulat
+  const nodeRef = useRef(null); 
+  const nodeRefChat = useRef(null); 
+  const nodeRefButton = useRef(null); 
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -228,6 +232,12 @@ const ModulMateri = () => {
       return;
     }
 
+    if (currentModul.evaluation && currentModul.evaluation.length > 0 && !isEvaluating) {
+        setIsEvaluating(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+    }
+
     setIsLoading(true);
     try {
       if (userId && token) { 
@@ -294,6 +304,21 @@ const ModulMateri = () => {
     }
   };
 
+  const handleSubmitEvaluation = () => {
+    let correct = 0;
+    currentModul.evaluation.forEach((q, idx) => {
+        if (answers[idx] === q.answer) correct++;
+    });
+    const finalScore = Math.round((correct / currentModul.evaluation.length) * 100);
+    setScore(finalScore);
+    if (finalScore >= 70) {
+        setTaskCompleted(true);
+    } else {
+        alert(`Skor kamu ${finalScore}. Minimal 70 untuk lulus. Silakan coba lagi!`);
+        setAnswers({});
+    }
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!chatInput.trim() || isTyping) return;
@@ -331,7 +356,6 @@ const ModulMateri = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 font-sans pb-20">
-      {/* Sidebar Section */}
       <div className={`fixed top-0 left-0 h-full w-80 bg-slate-900 border-r border-slate-800 z-[160] transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 h-full flex flex-col">
           <div className="flex justify-between items-center mb-8">
@@ -358,7 +382,8 @@ const ModulMateri = () => {
                             navigate(`/materi/${modul.id}`);
                           }
                           setCurrentPageIndex(pIdx); 
-                          setIsSidebarOpen(false); 
+                          setIsSidebarOpen(false);
+                          setIsEvaluating(false); 
                         }}
                         className={`text-left p-3 rounded-xl transition-all border text-xs ${isCurrentActive ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : !isLocked ? 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:bg-slate-800 hover:text-white' : 'bg-slate-950/50 border-transparent text-slate-700 cursor-not-allowed opacity-40'}`}
                       >
@@ -379,90 +404,134 @@ const ModulMateri = () => {
       <button onClick={() => setIsSidebarOpen(true)} className="fixed top-24 left-6 z-[100] w-12 h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-xl hover:bg-slate-800 transition-colors shadow-xl text-white">☰</button>
 
       <main className="max-w-5xl mx-auto p-6 lg:p-10 flex flex-col gap-12">
-        <section className="flex flex-col gap-8">
-          <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-indigo-500/20 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-            <p className="text-indigo-400 font-mono text-xs uppercase tracking-widest mb-3">
-              Part {currentPageIndex + 1} / {currentModul.pages.length}
-            </p>
-            <h1 className="text-4xl font-black text-white">{currentModul.title}</h1>
-            
-            {currentPage?.subtitle && (
-              <h2 className="text-xl font-bold text-indigo-300 mt-2">{currentPage.subtitle}</h2>
-            )}
+        {isEvaluating ? (
+            <section className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-indigo-900/20 border border-indigo-500/30 p-8 rounded-[2.5rem]">
+                    <h1 className="text-3xl font-black text-white mb-2">Evaluasi Akhir Modul</h1>
+                    <p className="text-slate-400">Jawab pertanyaan berikut dengan benar untuk menyelesaikan modul ini.</p>
+                </div>
+                <div className="flex flex-col gap-6">
+                    {currentModul.evaluation.map((q, qIdx) => (
+                        <div key={qIdx} className="bg-slate-900/50 border border-slate-800 p-8 rounded-3xl">
+                            <h3 className="text-lg font-bold text-white mb-6"><span className="text-indigo-400 mr-2">Q{qIdx+1}.</span>{q.question}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {q.options.map((opt, oIdx) => (
+                                    <button 
+                                        key={oIdx} 
+                                        onClick={() => setAnswers({...answers, [qIdx]: oIdx})}
+                                        className={`p-4 rounded-2xl border text-left transition-all ${answers[qIdx] === oIdx ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'}`}
+                                    >
+                                        {opt}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                {score === null ? (
+                    <button onClick={handleSubmitEvaluation} className="bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-500 transition-all">Submit Jawaban</button>
+                ) : score >= 70 ? (
+                    <div className="bg-emerald-500/20 border border-emerald-500/50 p-6 rounded-2xl text-center text-emerald-400">
+                        <p className="text-2xl font-black">Skor: {score} - LULUS! 🎉</p>
+                        <p className="text-sm">Silakan klik tombol di bawah untuk menyelesaikan modul.</p>
+                    </div>
+                ) : null}
+            </section>
+        ) : (
+            <>
+                <section className="flex flex-col gap-8">
+                  <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-indigo-500/20 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                    <p className="text-indigo-400 font-mono text-xs uppercase tracking-widest mb-3">
+                      Part {currentPageIndex + 1} / {currentModul.pages.length}
+                    </p>
+                    <h1 className="text-4xl font-black text-white">{currentModul.title}</h1>
+                    
+                    {currentPage?.subtitle && (
+                      <h2 className="text-xl font-bold text-indigo-300 mt-2">{currentPage.subtitle}</h2>
+                    )}
 
-            {currentModul.description && (
-              <p className="text-slate-400 mt-4 text-lg leading-relaxed max-w-2xl">
-                {currentModul.description}
-              </p>
-            )}
-          </div>
+                    {currentModul.description && (
+                      <p className="text-slate-400 mt-4 text-lg leading-relaxed max-w-2xl">
+                        {currentModul.description}
+                      </p>
+                    )}
+                  </div>
 
-          <div className="flex flex-col gap-10">
-            {currentPage?.content ? (
-              currentPage.content.map((item, index) => (
-                <div key={index} className="flex gap-5 group">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 flex items-center justify-center text-2xl shrink-0 shadow-lg">🤖</div>
-                  <div className="flex flex-col gap-4 w-full">
-                    {item.text && (
-                      <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-[2rem] rounded-tl-sm text-slate-200 text-lg shadow-xl">
-                        {/* FIX: Wrapper div untuk ReactMarkdown agar tidak error className */}
-                        <div className="prose prose-invert max-w-none"> 
-                          <ReactMarkdown rehypePlugins={[rehypeRaw]}>{item.text}</ReactMarkdown>
+                  <div className="flex flex-col gap-10">
+                    {currentPage?.content ? (
+                      currentPage.content.map((item, index) => (
+                        <div key={index} className="flex gap-5 group">
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 flex items-center justify-center text-2xl shrink-0 shadow-lg">🤖</div>
+                          <div className="flex flex-col gap-4 w-full">
+                            {item.text && (
+                              <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-[2rem] rounded-tl-sm text-slate-200 text-lg shadow-xl">
+                                <div className="prose prose-invert max-w-none"> 
+                                  <ReactMarkdown rehypePlugins={[rehypeRaw]}>{item.text}</ReactMarkdown>
+                                </div>
+                              </div>
+                            )}
+                            {item.code && (
+                              <div className="bg-cyan-950/20 border-l-4 border-cyan-500 p-6 rounded-r-[2rem] rounded-bl-[2rem] font-mono text-sm relative overflow-hidden">
+                                <pre className="text-cyan-300 whitespace-pre-wrap"><code>{item.code}</code></pre>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex gap-5">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 flex items-center justify-center text-2xl shrink-0">🤖</div>
+                        <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-[2rem] rounded-tl-sm text-slate-200 text-lg w-full shadow-xl">
+                            <ReactMarkdown rehypePlugins={[rehypeRaw]}>{currentPage?.narrative || ""}</ReactMarkdown>
                         </div>
                       </div>
                     )}
-                    {item.code && (
-                      <div className="bg-cyan-950/20 border-l-4 border-cyan-500 p-6 rounded-r-[2rem] rounded-bl-[2rem] font-mono text-sm relative overflow-hidden">
-                        <pre className="text-cyan-300 whitespace-pre-wrap"><code>{item.code}</code></pre>
-                      </div>
-                    )}
                   </div>
-                </div>
-              ))
-            ) : (
-              <div className="flex gap-5">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 flex items-center justify-center text-2xl shrink-0">🤖</div>
-                <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-[2rem] rounded-tl-sm text-slate-200 text-lg w-full shadow-xl">
-                    <ReactMarkdown rehypePlugins={[rehypeRaw]}>{currentPage?.narrative || ""}</ReactMarkdown>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+                </section>
 
-        <section className="flex flex-col gap-4">
-          <div className="h-[550px] rounded-[2.5rem] overflow-hidden border border-slate-800 bg-[#1e1e1e] shadow-2xl flex flex-col relative">
-            <div className="bg-[#181818] px-8 py-4 flex justify-between items-center border-b border-slate-800">
-                <span className="font-mono text-xs text-slate-500">main.py</span>
-                {taskCompleted && <span className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">✓ Selesai</span>}
-            </div>
-            <div className="flex-1 pt-4">
-              <Editor 
-                defaultLanguage="python" 
-                defaultValue={code} 
-                height="100%" 
-                key={`${currentModul.id}-${currentPageIndex}`}
-                onMount={(editor) => { editorRef.current = editor; }} 
-                options={{ fontSize: 16, minimap: { enabled: false }, automaticLayout: true }} 
-                theme="vs-dark"
-              />
-            </div>
-            <button onClick={runCode} className="absolute bottom-[35%] right-10 z-10 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl flex items-center justify-center text-slate-900 shadow-2xl hover:scale-110 active:scale-95 transition-all">▶</button>
-            <div className="h-[30%] bg-[#050505] border-t border-slate-800 p-8 font-mono text-sm overflow-y-auto">
-              <pre className={taskCompleted ? 'text-emerald-400' : 'text-slate-300'}>{output || "Output akan muncul di sini..."}</pre>
-              {taskCompleted && <p className="mt-4 font-bold text-emerald-300 animate-pulse">{currentPage?.successMsg}</p>}
-            </div>
-          </div>
-        </section>
+                <section className="flex flex-col gap-4">
+                  {/* FIX: Container Mission */}
+                  <div className="bg-fuchsia-900/20 border border-fuchsia-500/30 p-6 rounded-[2rem] flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-fuchsia-600 flex items-center justify-center text-xl shrink-0">🎯</div>
+                    <div>
+                      <h4 className="text-fuchsia-400 font-black uppercase tracking-widest text-xs mb-1">Misi Kamu</h4>
+                      <p className="text-white font-medium">{currentPage?.mission || "Selesaikan tantangan di editor di bawah ini."}</p>
+                    </div>
+                  </div>
+
+                  <div className="h-[550px] rounded-[2.5rem] overflow-hidden border border-slate-800 bg-[#1e1e1e] shadow-2xl flex flex-col relative">
+                    <div className="bg-[#181818] px-8 py-4 flex justify-between items-center border-b border-slate-800">
+                        <span className="font-mono text-xs text-slate-500">main.py</span>
+                        {taskCompleted && <span className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">✓ Selesai</span>}
+                    </div>
+                    <div className="flex-1 pt-4">
+                      <Editor 
+                        defaultLanguage="python" 
+                        defaultValue={code} 
+                        height="100%" 
+                        key={`${currentModul.id}-${currentPageIndex}`}
+                        onMount={(editor) => { editorRef.current = editor; }} 
+                        options={{ fontSize: 16, minimap: { enabled: false }, automaticLayout: true }} 
+                        theme="vs-dark"
+                      />
+                    </div>
+                    <button onClick={runCode} className="absolute bottom-[35%] right-10 z-10 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl flex items-center justify-center text-slate-900 shadow-2xl hover:scale-110 active:scale-95 transition-all">▶</button>
+                    <div className="h-[30%] bg-[#050505] border-t border-slate-800 p-8 font-mono text-sm overflow-y-auto">
+                      <pre className={taskCompleted ? 'text-emerald-400' : 'text-slate-300'}>{output || "Output akan muncul di sini..."}</pre>
+                      {taskCompleted && <p className="mt-4 font-bold text-emerald-300 animate-pulse">{currentPage?.successMsg}</p>}
+                    </div>
+                  </div>
+                </section>
+            </>
+        )}
 
         <div className="flex justify-center mt-4">
           <button onClick={handleNext} disabled={!taskCompleted} className={`px-16 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.3em] transition-all shadow-2xl ${taskCompleted ? 'bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white hover:-translate-y-1' : 'bg-slate-900 text-slate-700 cursor-not-allowed'}`}>
-            {currentPageIndex === currentModul.pages.length - 1 ? "Selesaikan Modul 🏆" : "Selanjutnya ➔"}
+            {currentPageIndex === currentModul.pages.length - 1 && !isEvaluating ? "Mulai Evaluasi ➔" : (currentPageIndex === currentModul.pages.length - 1 && isEvaluating ? "Selesaikan Modul 🏆" : "Selanjutnya ➔")}
           </button>
         </div>
       </main>
 
-      {/* --- BAGIAN CHAT & TOMBOL DRAGGABLE (FIXED) --- */}
       <div className="fixed inset-0 pointer-events-none z-[140]">
         
         <Draggable 
@@ -474,7 +543,6 @@ const ModulMateri = () => {
             ref={nodeRefButton} 
             className="absolute bottom-8 right-8 pointer-events-auto flex flex-col items-end"
           >
-            {/* 1. Jendela Chat */}
             {isChatOpen && (
               <div 
                 className="mb-4 w-80 md:w-96 h-[450px] bg-slate-900 border border-slate-800 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden"
@@ -488,12 +556,9 @@ const ModulMateri = () => {
                   {messages.map((msg, idx) => (
                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
-                        
-                        {/* Kontainer Markdown dengan proteksi Overflow */}
                         <div className="prose prose-sm prose-invert max-w-none break-words overflow-hidden">
                           <ReactMarkdown
                             components={{
-                              // Menangani blok kode agar otomatis bungkus baris (wrap)
                               code({ node, inline, className, children, ...props }) {
                                 return (
                                   <code
@@ -509,7 +574,6 @@ const ModulMateri = () => {
                             {msg.text}
                           </ReactMarkdown>
                         </div>
-                        
                       </div>
                     </div>
                   ))}
@@ -528,7 +592,6 @@ const ModulMateri = () => {
               </div>
             )}
 
-            {/* 2. Tombol Chat Bulat (Handle Drag) */}
             <button 
               onClick={() => setIsChatOpen(!isChatOpen)} 
               className="drag-button-handle w-16 h-16 rounded-2xl flex items-center justify-center text-3xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 text-white shadow-xl hover:scale-105 active:scale-95 transition-transform cursor-grab active:cursor-grabbing"

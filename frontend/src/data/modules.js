@@ -34,9 +34,13 @@ export const modules = [
             code: "class Car:\n    def __init-_(self):\n        pass\n\n# Atau dapat juga ditulis seperti ini :\n class Car:\n     pass"
           },
         ],
-        mission: "Tantangan: Cetak kalimat 'Siap membuat game RPG!' ke terminal.",
-        defaultCode: "# Tulis kodemu di bawah baris ini\n\n",
-        check: "print('Siap membuat game RPG!')",
+        mission: "Tantangan: Buatlah sebuah blueprint (class) bernama 'Hero' dengan tiga attribute: 'nama', 'Peran', dan 'level'. lalu, jangan lupa gunakan keyword  'pass' jika kamu belum mengisi logika didalamnya",
+        defaultCode: `# Definisikan class Hero di bawah ini
+class Hero:
+    def __init__(self):
+        # Deklarasikan attribute: nama, peran, dan level
+        # Gunakan pass jika belum ada isinya`,
+        check: "class Hero",
         successMsg: "Mantap! Mari kita buat cetakan pertamamu di halaman selanjutnya."
       },
       {
@@ -66,10 +70,10 @@ export const modules = [
             code: "class Car:\n     def __init__(self):\n          self.name = \"\"\n          self.manufacturer = \"\"\n          self.year = 0\n\ncar1 = Car()\ncar2 = Car()\ncar3 = Car()",
           }
         ],
-        mission: "Tantangan: Buatlah sebuah class kosong bernama 'Hero'.",
-        defaultCode: "# Buat blueprint Hero di bawah ini\n",
-        check: "class Hero:",
-        successMsg: "Bagus sekali! Blueprint Hero sudah tersimpan di memori."
+        mission: "Tantangan: Buatlah sebuah class bernama 'Hero'. Kemudian, buatlah satu object bernama 'hero1' dari class tersebut",
+        defaultCode: "# 1. Definisikan class Hero di sini\n\n\n# 2. Buat instance object hero1 di sini\n",
+        check: "class Hero:;hero1 = Hero()",
+        successMsg: "Luar biasa! Kamu sudah berhasil membuat blueprint 'Hero' dan mencetak pahlawan pertamamu (hero1) ke dalam memori."
       },
       {
         subtitle: "Instance Attribute",
@@ -101,10 +105,10 @@ export const modules = [
             code: null
           }
         ],
-        mission: "Tantangan: Ciptakan wujud nyata dari Hero dan simpan ke variabel 'pahlawan_pertama'.",
-        defaultCode: "class Hero:\n    pass\n\n# Ciptakan object di bawah ini\n",
-        check: "pahlawan_pertama = Hero()",
-        successMsg: "Luar biasa! Karakter pertamamu sudah lahir ke dunia nyata."
+        mission: "Tantangan: Lengkapi class 'Hero' dengan instance attribute 'name' (string kosong) dan 'level' (angka 0). Kemudian, buatlah satu object bernama 'pahlawan_pertama' dan cetaklah atribut 'name' miliknya menggunakan fungsi print.",
+        defaultCode: "class Hero:\n    def __init__(self):\n        # 1. Deklarasikan instance attribute di sini\n        \n\n# 2. Buat instance object 'pahlawan_pertama' di sini\n\n\n# 3. Cetak attribute name dari pahlawan_pertama\n",
+        check: "self.name = \"\";self.level = 0;pahlawan_pertama = Hero();print(pahlawan_pertama.name)",
+        successMsg: "Sempurna! Kamu telah berhasil memberikan 'identitas' pada Hero dan belajar cara memanggil data tersebut melalui object."
       },
       {
         subtitle: "Pengecekan instance object",
@@ -119,10 +123,10 @@ export const modules = [
             code: "car1 = Car()\ncar1.name = \"M3 GTR\"\ncar1.manufacturer = \"BMW\"\ncar1.year = 2001\n\nif isinstance(car1, Car):\n    print(f\"car1 class is Car\")\n# output -> car1 class is Car"
           }
         ],
-        mission: "Tantangan: Ciptakan wujud nyata dari Hero dan simpan ke variabel 'pahlawan_pertama'.",
-        defaultCode: "class Hero:\n    pass\n\n# Ciptakan object di bawah ini\n",
-        check: "pahlawan_pertama = Hero()",
-        successMsg: "Luar biasa! Karakter pertamamu sudah lahir ke dunia nyata."
+        mission: "Tantangan: Buatlah sebuah object bernama 'pahlawan_pertama' dari class 'Hero'. Kemudian, gunakan fungsi 'isinstance()' di dalam fungsi print() untuk mengecek apakah 'pahlawan_pertama' benar-benar merupakan bagian dari class 'Hero'.",
+        defaultCode: "class Hero:\n    pass\n\n# 1. Buat object 'pahlawan_pertama' di sini\n\n\n# 2. Cek tipe data object menggunakan isinstance() dan cetak hasilnya\n",
+        check: "pahlawan_pertama = Hero();print(isinstance(pahlawan_pertama, Hero))",
+        successMsg: "Bagus! Kamu telah berhasil melakukan validasi. Output 'True' membuktikan bahwa pahlawan_pertama adalah instance sah dari blueprint Hero."
       },
       {
         subtitle: "Class turunan object",
@@ -133,10 +137,63 @@ export const modules = [
             code: "data1 = Car():\nif isinstance(data1, Car):\n    print(f\"data1 class inherit from Car\")\nif isinstance(data1, object):\n    print(f\"data1 class inherit from object\")\n\ndata2 = \"Noval Agung\"\nif isinstance(data2, str):\n    print(f\"data2 class inherit from str\")\nif isinstance(data2, object):\n    print(f\"data2 class inherit from object\")\n\n# output :\n\n# data1 class inherit from Car\n# data1 class inherit from object\n# data2 class inherit from str\n#data2 class inherit from object"
           }
         ],
-        mission: "Tantangan: Ciptakan wujud nyata dari Hero dan simpan ke variabel 'pahlawan_pertama'.",
-        defaultCode: "class Hero:\n    pass\n\n# Ciptakan object di bawah ini\n",
-        check: "pahlawan_pertama = Hero()",
-        successMsg: "Luar biasa! Karakter pertamamu sudah lahir ke dunia nyata."
+        mission: "Tantangan: Buktikan bahwa class 'Hero' adalah turunan dari class 'object'. Buatlah object 'pahlawan_pertama', lalu gunakan 'isinstance()' untuk mengecek apakah pahlawan_pertama merupakan instance dari 'object'. Cetak hasilnya!",
+        defaultCode: "class Hero:\n    pass\n\n# 1. Buat object 'pahlawan_pertama'\n\n\n# 2. Gunakan isinstance untuk mengecek pahlawan_pertama terhadap class 'object'\n# Lalu cetak menggunakan print()\n",
+        check: "pahlawan_pertama = Hero();print(isinstance(pahlawan_pertama, object))",
+        successMsg: "Keren! Kamu baru saja membuktikan rahasia Python: semua hal (termasuk Hero buatanmu) pada dasarnya adalah sebuah 'object'."
+      },
+
+    ],
+   evaluation: [
+      {
+        question: "Apa fungsi dari keyword 'class' dalam Python?",
+        options: [
+          "Untuk membuat fungsi",
+          "Sebagai blueprint untuk membuat object",
+          "Untuk menghapus variabel",
+          "Untuk mencetak teks ke terminal"
+        ],
+        answer: 1
+      },
+      {
+        question: "Manakah cara yang benar untuk membuat instance dari class 'Car'?",
+        options: [
+          "car1 = class Car()",
+          "new Car()",
+          "car1 = Car()",
+          "car1 = Car"
+        ],
+        answer: 2
+      },
+      {
+        question: "Bagaimana cara mengakses atribut 'name' dari sebuah objek bernama 'hero1'?",
+        options: [
+          "hero1(name)",
+          "hero1.name",
+          "hero1->name",
+          "hero1['name']"
+        ],
+        answer: 1
+      },
+      {
+        question: "Apa kegunaan utama dari fungsi isinstance()?",
+        options: [
+          "Mengubah tipe data suatu variabel",
+          "Menghapus sebuah objek dari memori",
+          "Mengecek apakah objek merupakan instansiasi dari class tertentu",
+          "Membuat class baru secara otomatis"
+        ],
+        answer: 2
+      },
+      {
+        question: "Di Python, semua custom class secara otomatis merupakan turunan dari class apa?",
+        options: [
+          "str",
+          "int",
+          "object",
+          "main"
+        ],
+        answer: 2
       }
     ]
   },
@@ -161,10 +218,10 @@ export const modules = [
             code: ""
           },
         ],
-        mission: "Tantangan: Cetak kalimat 'Siap membuat game RPG!' ke terminal.",
-        defaultCode: "# Tulis kodemu di bawah baris ini\n\n",
-        check: "print('Siap membuat game RPG!')",
-        successMsg: "Mantap! Mari kita buat cetakan pertamamu di halaman selanjutnya."
+        mission: "Tantangan: Modifikasi class 'Hero' dengan menambahkan sebuah constructor (__init__). Di dalamnya, deklarasikan dua instance attribute: 'name' (string kosong) dan 'health' (angka 100).",
+        defaultCode: "class Hero:\n    # 1. Ganti 'pass' dengan constructor __init__\n    pass\n\n# 2. Buat object 'pahlawan_pertama' dari class Hero\n\n\n# 3. Cetak atribut health milik pahlawan_pertama\n",
+        check: "def __init__(self):;self.name = \"\";self.health = 100;pahlawan_pertama = Hero();print(pahlawan_pertama.health)",
+        successMsg: "Luar biasa! Kamu baru saja meng-override constructor bawaan. Sekarang, setiap Hero yang lahir otomatis memiliki health sebesar 100."
       },
       {
         subtitle: "Construktor dengan custom param",
@@ -179,10 +236,10 @@ export const modules = [
             code: null,
           }
         ],
-        mission: "Tantangan: Buatlah sebuah class kosong bernama 'Hero'.",
-        defaultCode: "# Buat blueprint Hero di bawah ini\n",
-        check: "class Hero:",
-        successMsg: "Bagus sekali! Blueprint Hero sudah tersimpan di memori."
+        mission: "Tantangan: Ubah constructor class 'Hero' agar menerima dua parameter: 'nama' dan 'peran'. Masukkan nilai parameter tersebut ke dalam instance attribute 'self.name' dan 'self.role'. Terakhir, buatlah object 'pahlawan_pertama' dengan argumen ('Arjuna', 'Pemanah').",
+        defaultCode: "class Hero:\n    def __init__(self, nama, peran):\n        # 1. Isi attribute dengan parameter di sini\n        self.name = \n        self.role = \n\n# 2. Buat object pahlawan_pertama dengan nama 'Arjuna' dan peran 'Pemanah'\npahlawan_pertama = \n\n# 3. Cetak nama pahlawan_pertama\nprint(pahlawan_pertama.name)",
+        check: "def __init__(self, nama, peran):;self.name = nama;self.role = peran;pahlawan_pertama = Hero('Arjuna', 'Pemanah');print(pahlawan_pertama.name)",
+        successMsg: "Luar biasa! Kamu telah menguasai Custom Constructor. Sekarang pembuatan objek menjadi jauh lebih efisien dan dinamis."
       },
       {
         subtitle: "Construktor overloading",
@@ -198,10 +255,10 @@ export const modules = [
             code: null,
           }
         ],
-        mission: "Tantangan: Buatlah sebuah class kosong bernama 'Hero'.",
-        defaultCode: "# Buat blueprint Hero di bawah ini\n",
-        check: "class Hero:",
-        successMsg: "Bagus sekali! Blueprint Hero sudah tersimpan di memori."
+        mission: "Tantangan: Modifikasi constructor 'Hero' agar memiliki dua parameter opsional: 'nama' (default: 'Hero Baru') dan 'hp' (default: 100). Dengan begini, kamu bisa membuat objek Hero tanpa argumen, atau dengan argumen lengkap.",
+        defaultCode: "class Hero:\n    # 1. Buat constructor dengan default parameter\n    def __init__(self, ...):\n        self.name = \n        self.health = \n\n# 2. Buat object 'h1' tanpa argumen apapun\nh1 = \n\n# 3. Buat object 'h2' dengan nama 'Gatotkaca' dan hp 500\nh2 = \n\nprint(f'{h1.name} HP: {h1.health}')\nprint(f'{h2.name} HP: {h2.health}')",
+        check: "name='Hero Baru';elevation=100;h1=Hero();h2=Hero('Gatotkaca', 500)",
+        successMsg: "Hebat! Kamu telah berhasil mensimulasikan 'Overloading'. Sekarang class Hero milikmu sangat fleksibel untuk berbagai kondisi awal."
       },
       {
         subtitle: "Construktor dengan return type **None**",
@@ -216,11 +273,537 @@ export const modules = [
             code: "class Mountain:\n    def __init__(self, name = \"\", region = \"\", elevation = 0):\n        self.name = name\n        self.region= region\n        self.elevation = elevation",
           }
         ],
-        mission: "Tantangan: Buatlah sebuah class kosong bernama 'Hero'.",
-        defaultCode: "# Buat blueprint Hero di bawah ini\n",
-        check: "class Hero:",
-        successMsg: "Bagus sekali! Blueprint Hero sudah tersimpan di memori."
+        mission: "Tantangan: Tambahkan Type Hinting '-> None' pada constructor class 'Hero'. Constructor ini harus menerima parameter 'name' dan menyimpannya ke dalam instance attribute.",
+        defaultCode: "class Hero:\n    # 1. Tambahkan '-> None' setelah definisi parameter constructor\n    def __init__(self, name):\n        self.name = name\n\n# 2. Buat object 'pahlawan_pertama'\n\n\n# 3. Cetak nama pahlawan tersebut\n",
+        check: "def __init__(self, name) -> None:;pahlawan_pertama = Hero(",
+        successMsg: "Luar biasa! Kamu sudah belajar menulis kode Python yang lebih 'clean' dan informatif dengan menggunakan Type Hinting."
+      }
+    ],
+    evaluation: [
+      {
+        question: "Apa nama method khusus yang digunakan sebagai constructor dalam Python?",
+        options: [
+          "def constructor(self):",
+          "def __init__(self):",
+          "def build(self):",
+          "def __start__(self):"
+        ],
+        answer: 1
+      },
+      {
+        question: "Apa tujuan utama dari proses 'override' pada default constructor?",
+        options: [
+          "Untuk menghapus class dari memori",
+          "Untuk mempercepat jalannya program",
+          "Untuk mendefinisikan instance attribute saat objek dibuat",
+          "Agar class tidak bisa dibuat menjadi objek"
+        ],
+        answer: 2
+      },
+      {
+        question: "Di posisi manakah parameter tambahan harus diletakkan pada method __init__?",
+        options: [
+          "Sebelum parameter 'self'",
+          "Di dalam body fungsi, bukan di parameter",
+          "Setelah parameter 'self'",
+          "Bebas di mana saja"
+        ],
+        answer: 2
+      },
+      {
+        question: "Bagaimana cara mensimulasikan 'Constructor Overloading' di Python?",
+        options: [
+          "Membuat dua method __init__ dalam satu class",
+          "Menggunakan default parameter atau *args/**kwargs",
+          "Menggunakan keyword 'overload'",
+          "Python sudah mendukung overloading secara otomatis"
+        ],
+        answer: 1
+      },
+      {
+        question: "Manakah penulisan Type Hinting yang benar untuk menyatakan bahwa constructor tidak mengembalikan nilai?",
+        options: [
+          "def __init__(self) -> None:",
+          "def __init__(self) -> object:",
+          "def __init__(self) -> void:",
+          "def __init__(self) -> return False:"
+        ],
+        answer: 0
       }
     ]
+  },
+  {
+      "id": 3,
+      "title": "Modul 3: Attribute & Method (Lanjutan)",
+      "pages": [
+        {
+          "subtitle": "Anatomi Method dan Parameter self",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Dalam Python, fungsi yang didefinisikan di dalam sebuah class disebut sebagai **method**. Ciri khas utama method adalah adanya parameter pertama yang wajib bernama **self**. \n\n**self** bukan sekadar nama, melainkan referensi ke **object instance** itu sendiri. Tanpa self, Python tidak akan tahu attribute mana yang harus diakses saat sebuah object memanggil method tersebut.",
+              "code": "class Hero:\n    def __init__(self, nama):\n        self.name = nama\n\n    def salam(self):\n        print(f\"Halo, saya {self.name}\")\n\npahlawan = Hero(\"Arjuna\")\npahlawan.salam() # Python otomatis mengirim 'pahlawan' ke parameter 'self'"
+            },
+            {
+              "text": "Saat kita memanggil method seperti **obj.salam()**, Python secara otomatis mengirimkan **obj** sebagai argumen untuk parameter **self**. Itulah sebabnya kita tidak perlu mengisi argumen self secara manual saat memanggil method.",
+              "code": null
+            }
+          ],
+          "mission": "Tantangan: Tambahkan sebuah method bernama 'teriak' pada class 'Hero'. Method tersebut harus mencetak pesan '[Nama Hero]: SERANG!!!' menggunakan attribute 'self.name'.",
+          "defaultCode": "class Hero:\n    def __init__(self, nama):\n        self.name = nama\n\n    # Buat method teriak di sini\n\n\npahlawan1 = Hero(\"Gatotkaca\")\npahlawan1.teriak()",
+          "check": "def teriak(self):;print(f\"{self.name}: SERANG!!!\");pahlawan1.teriak()",
+          "successMsg": "Keren! Kamu sekarang paham bagaimana method menggunakan 'self' untuk mengenali identitas object-nya sendiri."
+        },
+        {
+          "subtitle": "Instance vs Class Attribute",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Penting untuk membedakan di mana data disimpan. \n\n1. **Instance Attribute**: Dibuat di dalam `__init__` dengan `self`. Bersifat unik (setiap object punya nilai berbeda).\n2. **Class Attribute**: Dibuat di luar method. Nilainya dipakai bersama oleh semua object dari class tersebut.",
+              "code": "class Hero:\n    species = \"Human\" # Class Attribute\n\n    def __init__(self, nama):\n        self.name = nama # Instance Attribute\n\nprint(Hero.species)\np1 = Hero(\"Arjuna\")\nprint(p1.species) # Output: Human"
+            }
+          ],
+          "mission": "Tantangan: Tambahkan class attribute bernama 'kategori' dengan nilai 'Karakter Game' ke dalam class Hero. Lalu cetak attribute tersebut melalui object 'pahlawan_pertama'.",
+          "defaultCode": "class Hero:\n    # 1. Tambahkan class attribute kategori di sini\n    \n    def __init__(self, nama):\n        self.name = nama\n\npahlawan_pertama = Hero(\"Lancelot\")\n# 2. Cetak attribute kategori dari pahlawan_pertama\n",
+          "check": "kategori = \"Karakter Game\";print(pahlawan_pertama.kategori)",
+          "successMsg": "Tepat sekali! Class attribute sangat berguna untuk menyimpan data yang sifatnya umum bagi semua object."
+        },
+        {
+          "subtitle": "Simulasi Constructor Overloading",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Python tidak mengizinkan dua method `__init__` dalam satu class. Namun, kita bisa menggunakan **Default Parameter** agar pembuatan object menjadi fleksibel (bisa diisi argumen atau tidak).",
+              "code": "class Hero:\n    def __init__(self, nama, health=100):\n        self.name = nama\n        self.health = health\n\n# Tanpa argumen health (otomatis 100)\nh1 = Hero(\"Arjuna\") \n# Dengan argumen health custom\nh2 = Hero(\"Gatotkaca\", 200)"
+            }
+          ],
+          "mission": "Tantangan: Ubah constructor Hero agar parameter 'peran' memiliki nilai default 'Petarung'. Buat object 'h1' hanya dengan nama 'Miya' tanpa mengisi parameter peran.",
+          "defaultCode": "class Hero:\n    # Berikan nilai default pada parameter peran\n    def __init__(self, nama, peran):\n        self.name = nama\n        self.role = peran\n\n# Buat object h1 di sini\n",
+          "check": "def __init__(self, nama, peran=\"Petarung\"):;h1 = Hero(\"Miya\");print(h1.role)",
+          "successMsg": "Luar biasa! Dengan default parameter, kamu baru saja mensimulasikan 'Overloading' di Python."
+        }
+      ],
+      "evaluation": [
+        {
+          "question": "Apa peran utama dari parameter 'self' pada method di Python?",
+          "options": [
+            "Sebagai kata kunci untuk membuat variable global",
+            "Sebagai referensi ke instance/object yang sedang aktif",
+            "Untuk menghapus object dari memori",
+            "Untuk menghubungkan Python dengan database"
+          ],
+          "answer": 1
+        },
+        {
+          "question": "Di mana Class Attribute biasanya dideklarasikan?",
+          "options": [
+            "Di dalam method __init__",
+            "Di luar deklarasi class",
+            "Langsung di bawah class, di luar method",
+            "Hanya bisa diakses di dalam loop"
+          ],
+          "answer": 2
+        },
+        {
+          "question": "Apa yang terjadi jika kita membuat dua method __init__ dalam satu class Python?",
+          "options": [
+            "Python akan menjalankan keduanya sekaligus",
+            "Python akan menggunakan yang paling bawah (terakhir didefinisikan)",
+            "Akan terjadi error compile secara otomatis",
+            "Keduanya akan digabung secara otomatis"
+          ],
+          "answer": 1
+        },
+        {
+          "question": "Bagaimana cara menandai sebuah attribute sebagai 'Private' (secara konvensi) agar tidak mudah diakses dari luar?",
+          "options": [
+            "Menggunakan keyword 'private'",
+            "Menggunakan awalan dua underscore (__) pada nama attribute",
+            "Menulis attribute di file yang berbeda",
+            "Mengunci class dengan decorator @final"
+          ],
+          "answer": 1
+        },
+        {
+          "question": "Manakah pernyataan yang benar mengenai Instance Attribute?",
+          "options": [
+            "Nilainya selalu sama untuk semua object",
+            "Dideklarasikan menggunakan self di dalam method",
+            "Tidak bisa diubah setelah object dibuat",
+            "Hanya bisa berupa tipe data angka"
+          ],
+          "answer": 1
+        }
+      ]
+  },
+  {
+      "id": 4,
+      "title": "Modul 4: Encapsulation (Enkapsulasi)",
+      "pages": [
+        {
+          "subtitle": "Konsep Pembungkusan Data",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Encapsulation adalah proses membungkus data (attribute) dan fungsi (method) menjadi satu kesatuan dalam class, serta membatasi akses langsung dari luar[cite: 1]. \n\nTujuannya adalah untuk melindungi integritas data agar tidak diubah secara sembarangan oleh kode di luar class. Dalam Python, kita menggunakan tanda underscore (_) untuk menandai tingkat akses.",
+              "code": "class Bank:\n    def __init__(self, saldo):\n        self.__saldo = saldo # Private attribute\n\natm = Bank(1000)\n# print(atm.__saldo) # Ini akan menyebabkan Error!"
+            }
+          ],
+          "mission": "Tantangan: Buatlah class 'Akun' dengan satu private attribute bernama '__password' yang diisi melalui constructor.",
+          "defaultCode": "class Akun:\n    def __init__(self, password):\n        # 1. Deklarasikan private attribute __password di sini\n        pass\n\n# 2. Buat object user1 dengan password 'rahasia123'\n\n# 3. Cetak __password dari user1",
+          "check": "self.__password = password;user1 = Akun('rahasia123');print(user1.__password)",
+          "successMsg": "Hebat! Kamu melihat bahwa Python melindungi attribute private agar tidak bisa diintip langsung."
+        },
+        {
+          "subtitle": "Access Modifier: Public, Protected, & Private",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Ada tiga tingkatan akses (Access Modifier) di Python:\n1. **Public**: Bisa diakses dari mana saja (tanpa underscore)[cite: 1].\n2. **Protected**: Disarankan hanya untuk internal class dan turunannya (menggunakan satu underscore `_`)[cite: 1].\n3. **Private**: Benar-benar disembunyikan dari luar class (menggunakan dua underscore `__`)[cite: 1].",
+              "code": "class Senjata:\n    def __init__(self):\n        self.nama = \"Pedang\"      # Public\n        self._damage = 50         # Protected\n        self.__kode_rahasia = 123 # Private"
+            }
+          ],
+          "mission": "Tantangan: Ubah attribute 'power' pada class 'Hero' menjadi Protected.",
+          "defaultCode": "class Hero:\n    def __init__(self, power):\n        # Ubah menjadi protected\n        self.power = power",
+          "check": "self._power = power",
+          "successMsg": "Bagus! Kamu sudah mulai memahami konvensi penamaan untuk keamanan data."
+        },
+        {
+          "subtitle": "Getter: Mengambil Nilai Private",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Karena attribute private tidak bisa diakses langsung, kita membutuhkan method **Getter**[cite: 1]. Getter berfungsi untuk mengembalikan (return) nilai dari attribute yang disembunyikan tersebut agar bisa digunakan di luar class tanpa merusak datanya.",
+              "code": "class Hero:\n    def __init__(self, health):\n        self.__health = health\n\n    def get_health(self):\n        return self.__health"
+            }
+          ],
+          "mission": "Tantangan: Buat method getter bernama 'ambil_nyawa' yang mengembalikan nilai dari private attribute '__health'.",
+          "defaultCode": "class Hero:\n    def __init__(self, health):\n        self.__health = health\n\n    # Buat getter di sini",
+          "check": "def ambil_nyawa(self):;return self.__health",
+          "successMsg": "Mantap! Sekarang kamu bisa membaca data private secara aman."
+        },
+        {
+          "subtitle": "Setter: Mengubah Nilai dengan Validasi",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Method **Setter** digunakan untuk mengubah nilai attribute private[cite: 1]. Keunggulan Setter adalah kita bisa menambahkan **validasi** atau logika pengecekan sebelum data benar-benar diubah, sehingga data tidak berisi nilai yang salah.",
+              "code": "class Hero:\n    def set_health(self, nilai_baru):\n        if nilai_baru > 0: # Validasi\n            self.__health = nilai_baru"
+            }
+          ],
+          "mission": "Tantangan: Tambahkan setter 'set_level' yang hanya akan mengubah '__level' jika nilai baru lebih besar dari 0.",
+          "defaultCode": "class Hero:\n    def __init__(self):\n        self.__level = 1\n\n    def set_level(self, baru):\n        # Tambahkan validasi di sini\n        pass",
+          "check": "if baru > 0:;self.__level = baru",
+          "successMsg": "Luar biasa! Inilah inti dari enkapsulasi: Kendali penuh atas perubahan data."
+        },
+        {
+          "subtitle": "Name Mangling dalam Python",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Saat kita menggunakan double underscore (`__`), Python sebenarnya melakukan **Name Mangling**[cite: 1]. Nama attribute diubah secara internal menjadi `_ClassName__AttributeName`. Ini dilakukan untuk menghindari konflik nama pada sistem pewarisan (inheritance).",
+              "code": "class Hero:\n    def __init__(self):\n        self.__secret = \"123\"\n\nh1 = Hero()\n# print(h1._Hero__secret) # Cara 'ilegal' mengakses private"
+            }
+          ],
+          "mission": "Tantangan: Buktikan name mangling dengan mencoba mengakses '__secret' milik class 'Hero' menggunakan format '_Hero__secret'.",
+          "defaultCode": "class Hero:\n    def __init__(self):\n        self.__secret = \"BIM-SALA-BIM\"\n\nh1 = Hero()\n# Cetak menggunakan format name mangling\nprint()",
+          "check": "print(h1._Hero__secret)",
+          "successMsg": "Selamat! Kamu telah menembus pertahanan Python. Namun ingat, jangan gunakan cara ini dalam proyek nyata!"
+        }
+      ],
+      "evaluation": [
+        {
+          "question": "Apa simbol yang digunakan di Python untuk menyatakan sebuah attribute bersifat Private?",
+          "options": [
+            "Satu tanda pagar (#)",
+            "Satu underscore (_)",
+            "Dua underscore (__)",
+            "Keyword 'private'"
+          ],
+          "answer": 2
+        },
+        {
+          "question": "Apa fungsi utama dari method 'Setter'?",
+          "options": [
+            "Menghapus object dari memori",
+            "Menampilkan nilai ke layar saja",
+            "Mengubah nilai attribute dengan validasi tertentu",
+            "Membuat object baru secara otomatis"
+          ],
+          "answer": 2
+        },
+        {
+          "question": "Manakah tingkatan akses yang disarankan hanya digunakan untuk internal class dan turunannya saja?",
+          "options": [
+            "Public",
+            "Protected (_)",
+            "Private (__)",
+            "Global"
+          ],
+          "answer": 1
+        },
+        {
+          "question": "Apa yang dimaksud dengan 'Name Mangling' di Python?",
+          "options": [
+            "Proses menghapus attribute private",
+            "Perubahan nama internal attribute private oleh Python",
+            "Cara membuat method berjalan lebih cepat",
+            "Teknik mengganti nama class secara otomatis"
+          ],
+          "answer": 1
+        },
+        {
+          "question": "Mengapa kita sebaiknya tidak mengakses attribute private secara langsung?",
+          "options": [
+            "Karena akan menyebabkan komputer mati",
+            "Karena melanggar prinsip keamanan dan integritas data",
+            "Karena Python tidak mendukung attribute tersebut",
+            "Karena penulisan kodenya terlalu panjang"
+          ],
+          "answer": 1
+        }
+      ]
+  },
+  {
+      "id": 5,
+      "title": "Modul 5: Inheritance (Pewarisan)",
+      "pages": [
+        {
+          "subtitle": "Konsep Dasar Pewarisan",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Inheritance atau pewarisan memungkinkan sebuah class (disebut **Child Class**) untuk mewarisi attribute dan method dari class lain (disebut **Parent Class**)[cite: 1]. \n\nKonsep ini sangat berguna untuk **reusability** (penggunaan kembali kode), di mana kita tidak perlu menulis ulang logika yang sama untuk class yang memiliki karakteristik serupa.",
+              "code": "class Hero: # Parent Class\n    def __init__(self, nama):\n        self.name = nama\n\nclass Fighter(Hero): # Child Class mewarisi Hero\n    pass\n\nh1 = Fighter(\"Balmond\")\nprint(h1.name) # Output: Balmond"
+            }
+          ],
+          "mission": "Tantangan: Buatlah class 'Mage' yang mewarisi class 'Hero'.",
+          "defaultCode": "class Hero:\n    def __init__(self, nama):\n        self.name = nama\n\n# 1. Buat class Mage yang mewarisi Hero\n\n# 2. Buat object p1 dari class Mage dengan nama 'Alice'\n",
+          "check": "class Mage(Hero):;p1 = Mage('Alice');print(p1.name)",
+          "successMsg": "Hebat! Kamu telah berhasil membuat struktur hierarki pertama kamu."
+        },
+        {
+          "subtitle": "Menggunakan super()",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Fungsi **super()** digunakan dalam Child Class untuk memanggil method atau constructor milik Parent Class[cite: 1]. Ini sangat penting ketika Child Class memiliki constructor-nya sendiri tetapi tetap ingin menjalankan logika inisialisasi yang ada di Parent Class.",
+              "code": "class Hero:\n    def __init__(self, nama):\n        self.name = nama\n\nclass Tank(Hero):\n    def __init__(self, nama, armor):\n        super().__init__(nama) # Memanggil init milik Hero\n        self.armor = armor"
+            }
+          ],
+          "mission": "Tantangan: Lengkapi constructor class 'Assassin' agar memanggil constructor 'Hero' menggunakan super() untuk mengisi attribute 'name'.",
+          "defaultCode": "class Hero:\n    def __init__(self, nama):\n        self.name = nama\n\nclass Assassin(Hero):\n    def __init__(self, nama, speed):\n        # Gunakan super() di sini\n        self.speed = speed\n\nh1 = Assassin(\"Gusion\", 100)\nprint(h1.name)",
+          "check": "super().__init__(nama);h1 = Assassin('Gusion', 100);print(h1.name)",
+          "successMsg": "Luar biasa! super() memastikan semua attribute dari orang tua terwariskan dengan sempurna."
+        },
+        {
+          "subtitle": "Method Overriding",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Child Class dapat mendefinisikan ulang method yang sudah ada di Parent Class. Proses ini disebut **Method Overriding**[cite: 1]. Method yang dipanggil nantinya adalah method milik Child Class tersebut, bukan lagi milik Parent Class.",
+              "code": "class Hero:\n    def attack(self):\n        print(\"Hero menyerang!\")\n\nclass Marksman(Hero):\n    def attack(self):\n        print(\"Marksman menembak dari jauh!\")"
+            }
+          ],
+          "mission": "Tantangan: Lakukan overriding pada method 'skill' di class 'Fighter' agar mencetak 'Fighter menggunakan tinju!'.",
+          "defaultCode": "class Hero:\n    def skill(self):\n        print(\"Hero menggunakan skill\")\n\nclass Fighter(Hero):\n    # Override method skill di sini\n    pass\n\np1 = Fighter()\np1.skill()",
+          "check": "def skill(self):;print(\"Fighter menggunakan tinju!\");p1.skill()",
+          "successMsg": "Tepat sekali! Overriding memungkinkan setiap Child Class memiliki perilaku yang unik."
+        },
+        {
+          "subtitle": "Multiple Inheritance",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Python mendukung **Multiple Inheritance**, yaitu sebuah class dapat mewarisi lebih dari satu Parent Class sekaligus[cite: 1]. Caranya adalah dengan memisahkan nama-nama Parent Class menggunakan tanda koma di dalam kurung.",
+              "code": "class LandAnimal:\n    def walk(self):\n        print(\"Berjalan...\")\n\nclass WaterAnimal:\n    def swim(self):\n        print(\"Berenang...\")\n\nclass Frog(LandAnimal, WaterAnimal):\n    pass"
+            }
+          ],
+          "mission": "Tantangan: Buatlah class 'HybridHero' yang mewarisi dua class: 'Fighter' dan 'Mage'.",
+          "defaultCode": "class Fighter: pass\nclass Mage: pass\n\n# Buat class HybridHero di sini",
+          "check": "class HybridHero(Fighter, Mage):",
+          "successMsg": "Selamat! Kamu telah menguasai salah satu fitur tercanggih di Python OOP."
+        }
+      ],
+      "evaluation": [
+        {
+          "question": "Apa istilah untuk class yang mewarisi attribute dari class lain?",
+          "options": [
+            "Parent Class",
+            "Super Class",
+            "Child Class",
+            "Master Class"
+          ],
+          "answer": 2
+        },
+        {
+          "question": "Fungsi apa yang digunakan untuk memanggil constructor milik Parent Class dari Child Class?",
+          "options": [
+            "this()",
+            "super()",
+            "parent()",
+            "__init__()"
+          ],
+          "answer": 1
+        },
+        {
+          "question": "Apa yang terjadi saat kita melakukan Method Overriding?",
+          "options": [
+            "Method di Parent Class dihapus secara permanen",
+            "Child Class memiliki implementasi method yang berbeda dengan nama yang sama",
+            "Program akan menghasilkan error karena nama method kembar",
+            "Python akan menjalankan kedua method secara berurutan"
+          ],
+          "answer": 1
+        },
+        {
+          "question": "Bagaimana cara menuliskan Multiple Inheritance di Python?",
+          "options": [
+            "class Child(Parent1 + Parent2):",
+            "class Child(Parent1 & Parent2):",
+            "class Child(Parent1, Parent2):",
+            "class Child(Parent1 and Parent2):"
+          ],
+          "answer": 2
+        },
+        {
+          "question": "Manakah pernyataan yang paling tepat mengenai manfaat utama Inheritance?",
+          "options": [
+            "Mempercepat waktu booting komputer",
+            "Menghindari penulisan ulang kode yang sama (Code Reusability)",
+            "Menghapus attribute private secara otomatis",
+            "Membuat program bisa berjalan tanpa class"
+          ],
+          "answer": 1
+        }
+      ]
+  },
+  {
+      "id": 6,
+      "title": "Modul 6: Polymorphism (Polimorfisme)",
+      "pages": [
+        {
+          "subtitle": "Apa itu Polimorfisme?",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Polymorphism berasal dari bahasa Yunani yang berarti **'banyak bentuk'**. Dalam pemrograman OOP, polimorfisme memungkinkan satu interface (nama method yang sama) digunakan untuk berbagai tipe data atau class yang berbeda[cite: 1].\n\nIntinya, kita bisa memanggil method yang sama pada object yang berbeda, dan setiap object akan merespons dengan caranya masing-masing.",
+              "code": "class Cat:\n    def sound(self):\n        print(\"Meow!\")\n\nclass Dog:\n    def sound(self):\n        print(\"Woof!\")\n\n# Keduanya punya method sound(), tapi hasilnya beda"
+            }
+          ],
+          "mission": "Tantangan: Buat dua class 'Robot' dan 'Human', keduanya harus memiliki method bernama 'greet'.",
+          "defaultCode": "class Robot:\n    # Buat method greet di sini\n    pass\n\nclass Human:\n    # Buat method greet di sini\n    pass",
+          "check": "def greet(self):;def greet(self):",
+          "successMsg": "Hebat! Kamu baru saja menerapkan konsep dasar 'Banyak Bentuk'."
+        },
+        {
+          "subtitle": "Polimorfisme dengan Inheritance",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Polimorfisme paling sering terlihat saat kita menggunakan **Inheritance** (Pewarisan)[cite: 1]. Child class dapat melakukan *override* pada method milik Parent class untuk memberikan perilaku yang spesifik, namun tetap menggunakan nama method yang sama.",
+              "code": "class Hero:\n    def attack(self):\n        print(\"Hero menyerang!\")\n\nclass Archer(Hero):\n    def attack(self):\n        print(\"Memanah target!\")\n\nclass Mage(Hero):\n    def attack(self):\n        print(\"Melempar bola api!\")"
+            }
+          ],
+          "mission": "Tantangan: Buatlah class 'Fighter' yang mewarisi 'Hero' dan lakukan override pada method 'attack' agar mencetak 'Memukul musuh!'.",
+          "defaultCode": "class Hero:\n    def attack(self):\n        print(\"Hero menyerang\")\n\nclass Fighter(Hero):\n    # Override di sini\n    pass",
+          "check": "def attack(self):;print(\"Memukul musuh!\")",
+          "successMsg": "Bagus! Ini membuktikan bahwa satu perintah 'attack' bisa menghasilkan aksi yang berbeda tergantung jenis Hero-nya."
+        },
+        {
+          "subtitle": "Polimorfisme dalam Fungsi (Function)",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Kita bisa membuat sebuah fungsi yang menerima parameter berupa object. Selama object tersebut memiliki method yang dibutuhkan, fungsi tersebut akan berjalan tanpa peduli dari class mana object itu berasal[cite: 1].",
+              "code": "def cetak_suara(hewan):\n    hewan.sound() # Memanggil method sound dari object apapun\n\ncetak_suara(Cat())\ncetak_suara(Dog())"
+            }
+          ],
+          "mission": "Tantangan: Buat fungsi 'aksi_hero' yang menerima parameter 'hero' dan memanggil method 'attack()' milik parameter tersebut.",
+          "defaultCode": "def aksi_hero(hero):\n    # Panggil method attack di sini\n    pass",
+          "check": "hero.attack()",
+          "successMsg": "Tepat sekali! Fungsi ini sekarang bersifat fleksibel untuk segala jenis Hero."
+        },
+        {
+          "subtitle": "Polimorfisme dalam Perulangan (Loop)",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Polimorfisme sangat kuat ketika digunakan dalam **List**. Kita bisa menyimpan berbagai object yang berbeda dalam satu list, lalu menjalankan method yang sama menggunakan perulangan[cite: 1].",
+              "code": "list_hero = [Archer(), Mage(), Fighter()]\n\nfor hero in list_hero:\n    hero.attack() # Semua menyerang dengan gaya masing-masing"
+            }
+          ],
+          "mission": "Tantangan: Buatlah list bernama 'pasukan' yang berisi satu object Archer dan satu object Mage. Lalu jalankan method 'attack' menggunakan loop 'for'.",
+          "defaultCode": "class Archer: \n    def attack(self): print(\"Panah!\")\nclass Mage: \n    def attack(self): print(\"Sihir!\")\n\n# 1. Buat list pasukan\npasukan = \n\n# 2. Loop pasukan dan panggil attack\n",
+          "check": "pasukan = [Archer(), Mage()];for hero in pasukan:;hero.attack()",
+          "successMsg": "Luar biasa! Kamu telah melihat bagaimana polimorfisme menyederhanakan manajemen banyak object."
+        },
+        {
+          "subtitle": "Duck Typing di Python",
+          "youtubeId": null,
+          "content": [
+            {
+              "text": "Python menggunakan filosofi **Duck Typing**: *\"Jika ia berjalan seperti bebek dan bersuara seperti bebek, maka ia adalah bebek\"*[cite: 1]. Artinya, Python tidak peduli tipe data object-nya, selama object tersebut memiliki method yang kita panggil.",
+              "code": "class Bird:\n    def fly(self): print(\"Terbang\")\n\nclass Airplane:\n    def fly(self): print(\"Mesin hidup dan terbang\")\n\n# Keduanya bukan dari keluarga yang sama, tapi sama-sama bisa fly()"
+            }
+          ],
+          "mission": "Tantangan: Buat class 'PaperPlane' (pesawat kertas) yang memiliki method 'fly' agar bisa digunakan bersama object Bird dan Airplane.",
+          "defaultCode": "class PaperPlane:\n    # Buat method fly di sini\n    pass",
+          "check": "def fly(self):",
+          "successMsg": "Selamat! Kamu telah menguasai konsep Duck Typing yang membuat Python sangat fleksibel."
+        }
+      ],
+      "evaluation": [
+        {
+          "question": "Apa arti harfiah dari istilah Polymorphism?",
+          "options": [
+            "Banyak data",
+            "Banyak bentuk",
+            "Banyak fungsi",
+            "Satu tujuan"
+          ],
+          "answer": 1
+        },
+        {
+          "question": "Manakah pernyataan yang paling tepat menggambarkan Polimorfisme?",
+          "options": [
+            "Kemampuan untuk menyembunyikan attribute private",
+            "Kemampuan untuk mewarisi sifat dari Parent class",
+            "Kemampuan satu method memiliki perilaku berbeda pada object yang berbeda",
+            "Kemampuan untuk membuat object tanpa class"
+          ],
+          "answer": 2
+        },
+        {
+          "question": "Dalam konteks polimorfisme, apa fungsi dari Method Overriding?",
+          "options": [
+            "Menghapus method lama agar hemat memori",
+            "Menyediakan implementasi khusus pada Child class untuk method yang sama di Parent class",
+            "Menghubungkan database dengan class",
+            "Membuat method menjadi private secara otomatis"
+          ],
+          "answer": 1
+        },
+        {
+          "question": "Apa syarat utama agar sebuah fungsi polimorfik dapat menjalankan method pada berbagai object berbeda?",
+          "options": [
+            "Object harus berasal dari class yang sama",
+            "Object harus memiliki nama attribute yang sama",
+            "Object harus memiliki nama method yang sesuai dengan yang dipanggil dalam fungsi",
+            "Object harus didefinisikan sebagai global variable"
+          ],
+          "answer": 2
+        },
+        {
+          "question": "Apa yang dimaksud dengan filosofi 'Duck Typing' di Python?",
+          "options": [
+            "Hanya bisa menggunakan class yang bernama Duck",
+            "Tipe data tidak penting selama object memiliki perilaku (method) yang diminta",
+            "Semua object harus mewarisi class Animal",
+            "Program akan error jika tidak ada suara bebek"
+          ],
+          "answer": 1
+        }
+      ]
   }
 ];
