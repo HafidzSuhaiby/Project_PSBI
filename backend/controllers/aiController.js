@@ -13,7 +13,6 @@ export const analyzeWithGemini = async (req, res) => {
             return res.status(400).json({ success: false, error: "Tidak ada teks yang diekstrak." });
         }
 
-        // Membersihkan dan membatasi teks agar tidak melebihi context window
         const cleanText = extractedText.slice(0, 12000).replace(/\s+/g, ' ');
 
         const chatCompletion = await groq.chat.completions.create({
@@ -21,39 +20,47 @@ export const analyzeWithGemini = async (req, res) => {
                 { 
                     role: "system", 
                     content: `Anda adalah Pynara, asisten AI pakar Python untuk siswa SMK. 
-Tugas Anda adalah merangkum teks PDF menjadi modul belajar dalam format JSON murni.
+Tugas Anda adalah merangkum materi Pemrograman Berorientasi Objek (PBO) dari teks PDF menjadi modul belajar dalam format JSON murni.
 
-TUGAS UTAMA:
-Ubah materi Pemrograman Berorientasi Objek (PBO) dari teks PDF menjadi modul belajar Python interaktif dalam format JSON.
+STRATEGI KONTEN:
+1. Analogi: Gunakan dunia nyata (Game RPG, Motor, HP). Sapaan: "Bro/Sis".
+2. Struktur Materi: Pecah menjadi 3-5 halaman (pages).
+3. Evaluasi: Tambahkan 5 soal pilihan ganda di akhir modul.
 
-ATURAN OUTPUT:
-1. Output HARUS berupa JSON object yang valid.
-2. JANGAN sertakan markdown seperti \`\`\`json di awal atau penjelasan teks di luar JSON.
-3. Jika teks PDF tidak cukup jelas, buatkan materi dasarnya berdasarkan topik yang terdeteksi.
-
-STRATEGI MENGAJAR SMK:
-1. Gunakan analogi dunia nyata yang dekat dengan anak muda (Game RPG, Skin Mobile Legends, Spesifikasi HP, atau Komponen Motor).
-2. Hindari bahasa dewa/teoretis yang membosankan. Gunakan sapaan "Bro/Sis/Kamu".
-3. Narasi harus panjang dan jelas, menjelaskan "Kenapa ini penting?" bukan hanya "Apa itu?".
-4. Pecah materi menjadi minimal 3-5 halaman (pages) agar tidak menumpuk.
-
-STRUKTUR JSON:
+WAJIB MENGIKUTI STRUKTUR JSON BERIKUT:
 {
-  "title": "Judul Seru",
+  "id": number,
+  "title": "Judul Modul",
   "pages": [
-    { 
-      "narrative": "Penjelasan detail (Markdown support)", 
-      "mission": "Tugas praktikum", 
-      "defaultCode": "Template kode", 
-      "check": "Kata kunci validasi", 
-      "successMsg": "Pesan sukses" 
+    {
+      "subtitle": "Subjudul Halaman",
+      "youtubeId": null,
+      "content": [
+        {
+          "text": "Penjelasan konsep (Markdown support)",
+          "code": "Contoh kode Python atau null jika tidak ada kode"
+        }
+      ],
+      "mission": "Instruksi tugas praktikum",
+      "defaultCode": "Template kode awal untuk dikerjakan siswa",
+      "check": "String kunci untuk validasi jawaban",
+      "answerCode": "Solusi kode yang benar",
+      "successMsg": "Pesan motivasi saat berhasil",
+      "voiceSummary": "Ringkasan materi dalam 2-3 kalimat untuk narasi suara"
+    }
+  ],
+  "evaluation": [
+    {
+      "question": "Pertanyaan soal",
+      "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
+      "answer": index_jawaban_benar (0-3)
     }
   ]
 }` 
                 },
                 { 
                     role: "user", 
-                    content: `Teks PDF: "${cleanText}". Buatlah modul minimal 3 halaman berdasarkan teks tersebut.` 
+                    content: `Teks PDF: "${cleanText}". Buatlah satu modul lengkap dengan format tersebut.` 
                 }
             ],
             model: "llama-3.1-8b-instant",
@@ -67,10 +74,12 @@ STRUKTUR JSON:
             throw new Error("AI tidak memberikan respon valid.");
         }
 
-        // Mengirimkan hasil sebagai objek JSON agar bisa langsung diproses Frontend
+        // Parsing hasil untuk memastikan formatnya benar sebelum dikirim
+        const parsedData = JSON.parse(aiResponse);
+
         res.json({ 
             success: true, 
-            data: JSON.parse(aiResponse) 
+            data: parsedData 
         });
 
     } catch (error) {

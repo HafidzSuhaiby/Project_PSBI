@@ -35,6 +35,9 @@ const ModulMateri = () => {
   ]);
   const [isTyping, setIsTyping] = useState(false);
   
+  // FIX: State untuk melacak jumlah kegagalan (error)
+  const [failCount, setFailCount] = useState(0);
+
   const editorRef = useRef(null);
   const chatEndRef = useRef(null);
   const nodeRef = useRef(null); 
@@ -128,7 +131,9 @@ const ModulMateri = () => {
                 defaultCode: page.defaultCode || "# Tulis kode Python\n",
                 check: page.check || "print",
                 successMsg: page.successMsg || "Bagus!",
-                youtubeId: page.youtubeId || page.videoUrl || null 
+                youtubeId: page.youtubeId || page.videoUrl || null,
+                // FIX: Menambahkan jawaban misi untuk fitur hint
+                answerCode: page.answerCode || page.check || ""
               }))
             };
           }
@@ -162,6 +167,8 @@ const ModulMateri = () => {
   useEffect(() => {
     if (currentModul?.pages && currentModul.pages[currentPageIndex]) {
       setOutput('');
+      // FIX: Reset failCount setiap ganti halaman
+      setFailCount(0);
       const defaultVal = currentModul.pages[currentPageIndex].defaultCode || "";
       setCode(defaultVal);
       if (editorRef.current) {
@@ -176,6 +183,7 @@ const ModulMateri = () => {
     if (!pyodide || !currentPage) return;
     const userCode = editorRef.current ? editorRef.current.getValue() : code;
     setOutput('Sedang memproses kode...');
+    
     try {
       pyodide.runPython(`import sys, io\nsys.stdout = io.StringIO()`);
       await pyodide.runPythonAsync(userCode);
@@ -189,12 +197,21 @@ const ModulMateri = () => {
 
       if (cleanOutput.includes(cleanTarget) || cleanUserCode.includes(cleanTarget)) {
         setTaskCompleted(true);
+        setFailCount(0);
+
+        // FITUR BARU: Menjalankan Suara Penjelasan
+        // Menggunakan successMsg atau narrative singkat sebagai bahan pembicaraan
+        const textToSpeak = currentPage.voiceSummary || "Bagus! Kamu berhasil menyelesaikan misi ini.";
+        speakExplanation(textToSpeak);
+
       } else {
         setTaskCompleted(false);
+        setFailCount(prev => prev + 1);
       }
     } catch (err) { 
       setOutput(`Error: ${err.message}`); 
       setTaskCompleted(false);
+      setFailCount(prev => prev + 1);
     }
   };
 
@@ -346,6 +363,25 @@ const ModulMateri = () => {
     } catch (error) { console.error(error); } finally { setIsTyping(false); }
   };
 
+  const speakExplanation = (text) => {
+    // Batalkan suara yang sedang berjalan jika ada
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Mengatur bahasa ke Bahasa Indonesia
+    utterance.lang = 'id-ID'; 
+    utterance.rate = 1.0; // Kecepatan bicara
+    utterance.pitch = 1.0; // Nada suara
+
+    // Opsional: Pilih voice yang terdengar lebih natural jika tersedia
+    const voices = window.speechSynthesis.getVoices();
+    const indoVoice = voices.find(v => v.lang.includes('id'));
+    if (indoVoice) utterance.voice = indoVoice;
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   if (isLoading || !currentModul) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -458,6 +494,19 @@ const ModulMateri = () => {
                   </div>
 
                   <div className="flex flex-col gap-10">
+                    {currentPage?.youtubeId && (
+                      <div className="mt-8 w-full aspect-video rounded-[2rem] overflow-hidden border border-slate-800 shadow-xl">
+                        <iframe
+                          width="100%"
+                          height="100%"
+                          src={`https://www.youtube.com/embed/${getYoutubeEmbedId(currentPage.youtubeId)}`}
+                          title="YouTube video player"
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        ></iframe>
+                      </div>
+                    )}
                     {currentPage?.content ? (
                       currentPage.content.map((item, index) => (
                         <div key={index} className="flex gap-5 group">
@@ -490,7 +539,6 @@ const ModulMateri = () => {
                 </section>
 
                 <section className="flex flex-col gap-4">
-                  {/* FIX: Container Mission */}
                   <div className="bg-fuchsia-900/20 border border-fuchsia-500/30 p-6 rounded-[2rem] flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-fuchsia-600 flex items-center justify-center text-xl shrink-0">🎯</div>
                     <div>
@@ -515,6 +563,15 @@ const ModulMateri = () => {
                         theme="vs-dark"
                       />
                     </div>
+                    {/* FIX: Tombol Hint yang muncul setelah 5 kali gagal */}
+                    {failCount >= 5 && (
+                      <button 
+                        onClick={() => editorRef.current?.setValue(currentPage?.answerCode || "")}
+                        className="absolute top-16 right-10 z-10 px-4 py-2 bg-amber-500 text-slate-900 rounded-xl font-bold shadow-lg animate-bounce hover:bg-amber-400 transition-all text-xs"
+                      >
+                        💡 Gunakan Hint?
+                      </button>
+                    )}
                     <button onClick={runCode} className="absolute bottom-[35%] right-10 z-10 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl flex items-center justify-center text-slate-900 shadow-2xl hover:scale-110 active:scale-95 transition-all">▶</button>
                     <div className="h-[30%] bg-[#050505] border-t border-slate-800 p-8 font-mono text-sm overflow-y-auto">
                       <pre className={taskCompleted ? 'text-emerald-400' : 'text-slate-300'}>{output || "Output akan muncul di sini..."}</pre>

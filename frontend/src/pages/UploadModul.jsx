@@ -6,7 +6,7 @@ import * as pdfjsLib from 'pdfjs-dist';
  * yang merusak pemanggilan library PDF.js.
  */
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
-pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker; // FIX: Menghubungkan workerSrc dengan pdfWorker yang diimport
 
 // FIX: Definisikan base URL API backend Anda (Sudah mengandung /api/ai)
 const API_URL = "http://localhost:5000/api/ai";
@@ -159,17 +159,31 @@ const UploadModul = () => {
                 <div key={index} className="p-8 bg-slate-900 border border-slate-800 rounded-[2rem] shadow-sm">
                 <div className="flex justify-between items-center mb-4">
                     <span className="px-4 py-1 bg-indigo-500/10 text-indigo-400 text-xs font-mono rounded-full border border-indigo-500/20">
-                    BAGIAN {index + 1}
+                    {page.subtitle || `BAGIAN ${index + 1}`} {/* FIX: Menggunakan subtitle dari AI atau fallback */}
                     </span>
                 </div>
                 
                 {/* Penjelasan Materi */}
                 <div className="prose prose-invert max-w-none mb-6 text-slate-300">
-                    <p className="leading-relaxed whitespace-pre-wrap">{page.narrative}</p>
+                    {/* FIX: Render content yang berisi text & code secara fleksibel */}
+                    {page.content && Array.isArray(page.content) ? (
+                      page.content.map((item, i) => (
+                        <div key={i}>
+                          {item.text && <p className="leading-relaxed whitespace-pre-wrap mb-4">{item.text}</p>}
+                          {item.code && (
+                            <div className="bg-black/50 rounded-xl p-5 mb-4 border border-slate-800 font-mono text-sm text-green-400 overflow-x-auto">
+                              <pre><code>{item.code}</code></pre>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <p className="leading-relaxed whitespace-pre-wrap">{page.narrative}</p>
+                    )}
                 </div>
 
-                {/* Contoh Kode jika ada */}
-                {page.defaultCode && (
+                {/* Contoh Kode jika ada (Legacy support) */}
+                {page.defaultCode && !page.content && (
                     <div className="bg-black/50 rounded-xl p-5 mb-6 border border-slate-800 font-mono text-sm text-green-400 overflow-x-auto">
                     <pre><code>{page.defaultCode}</code></pre>
                     </div>
