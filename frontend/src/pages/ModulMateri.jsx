@@ -21,6 +21,9 @@ const ModulMateri = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [code, setCode] = useState(""); 
   const [userId, setUserId] = useState(null);
+  
+  // FIX: Menyimpan data modul mana saja yang sudah ditamatkan secara mutlak
+  const [completedModules, setCompletedModules] = useState([]);
 
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [answers, setAnswers] = useState({});
@@ -34,14 +37,10 @@ const ModulMateri = () => {
     { role: 'ai', text: 'Halo! Aku Pynara. Ada yang ingin ditanyakan tentang kode Python di halaman ini?' }
   ]);
   const [isTyping, setIsTyping] = useState(false);
-  
-  // FIX: State untuk melacak jumlah kegagalan (error)
   const [failCount, setFailCount] = useState(0);
 
   const editorRef = useRef(null);
   const chatEndRef = useRef(null);
-  const nodeRef = useRef(null); 
-  const nodeRefChat = useRef(null); 
   const nodeRefButton = useRef(null); 
 
   useEffect(() => {
@@ -77,7 +76,22 @@ const ModulMateri = () => {
             
             if (currentUserId) {
               setUserId(currentUserId);
+
+              // AMBIL DATA PROFIL UNTUK MENGUNCI SIDEBAR SECARA KETAT
+              try {
+                const profileRes = await fetch(`${API_URL}/profiles/${currentUserId}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (profileRes.ok) {
+                  const pData = await profileRes.json();
+                  const profile = pData.data || pData;
+                  const raw = profile.completed_modules;
+                  const cArr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+                  setCompletedModules(cArr.map(String));
+                }
+              } catch (err) { console.error("Error get profile", err); }
               
+              // AMBIL PROGRES HALAMAN TERAKHIR
               try {
                 const progressRes = await fetch(`${API_URL}/users-progress/${currentUserId}/${cleanTargetId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -89,18 +103,12 @@ const ModulMateri = () => {
                     
                     if (progressData) { 
                       lastSavedPage = parseInt(progressData.last_page_index) || 0;
-                      alreadyCompleted = progressData.is_completed === 1;
-                    } else { 
-                      lastSavedPage = 0;
-                      alreadyCompleted = false;
+                      // TANGKAP BOOLEAN ATAU ANGKA
+                      alreadyCompleted = (progressData.is_completed === 1 || progressData.is_completed === true);
                     }
-                } else { 
-                  lastSavedPage = 0;
-                  alreadyCompleted = false;
                 }
               } catch (err) {
                 console.error("Gagal mengambil progres spesifik modul:", err);
-                lastSavedPage = 0; 
               }
             }
           }
@@ -132,7 +140,6 @@ const ModulMateri = () => {
                 check: page.check || "print",
                 successMsg: page.successMsg || "Bagus!",
                 youtubeId: page.youtubeId || page.videoUrl || null,
-                // FIX: Menambahkan jawaban misi untuk fitur hint
                 answerCode: page.answerCode || page.check || ""
               }))
             };
@@ -144,10 +151,16 @@ const ModulMateri = () => {
 
       if (loadedModul) {
         setCurrentModul(loadedModul);
-        const validPageIndex = (lastSavedPage >= 0 && lastSavedPage < (loadedModul.pages?.length || 0)) ? lastSavedPage : 0;
+        // FIX: Jika sudah tamat, buka semua halaman, tapi selalu arahkan ke halaman 1 sebagai awal
+        const validPageIndex = alreadyCompleted ? 0 : (lastSavedPage >= 0 && lastSavedPage < (loadedModul.pages?.length || 0)) ? lastSavedPage : 0;
         setCurrentPageIndex(validPageIndex);
         setMaxUnlockedIndex(alreadyCompleted ? (loadedModul.pages?.length || 0) : lastSavedPage); 
         setTaskCompleted(alreadyCompleted); 
+
+        // FIX BUG EVALUASI: Paksa matikan status ujian setiap kali ganti modul
+        setIsEvaluating(false);
+        setScore(null);
+        setAnswers({});
       }
       setIsLoading(false);
     };
@@ -167,7 +180,6 @@ const ModulMateri = () => {
   useEffect(() => {
     if (currentModul?.pages && currentModul.pages[currentPageIndex]) {
       setOutput('');
-      // FIX: Reset failCount setiap ganti halaman
       setFailCount(0);
       const defaultVal = currentModul.pages[currentPageIndex].defaultCode || "";
       setCode(defaultVal);
@@ -198,12 +210,7 @@ const ModulMateri = () => {
       if (cleanOutput.includes(cleanTarget) || cleanUserCode.includes(cleanTarget)) {
         setTaskCompleted(true);
         setFailCount(0);
-
-        // FITUR BARU: Menjalankan Suara Penjelasan
-        // Menggunakan successMsg atau narrative singkat sebagai bahan pembicaraan
-        const textToSpeak = currentPage.voiceSummary || "Bagus! Kamu berhasil menyelesaikan misi ini.";
-        speakExplanation(textToSpeak);
-
+        speakExplanation(currentPage.voiceSummary || "Bagus! Kamu berhasil menyelesaikan misi ini.");
       } else {
         setTaskCompleted(false);
         setFailCount(prev => prev + 1);
@@ -237,9 +244,7 @@ const ModulMateri = () => {
               xp_earned: 0
             })
           });
-        } catch (err) { 
-          console.error("Gagal update progress:", err); 
-        }
+        } catch (err) { console.error("Gagal update progress:", err); }
       }
       
       if (nextIdx > maxUnlockedIndex) setMaxUnlockedIndex(nextIdx); 
@@ -279,8 +284,9 @@ const ModulMateri = () => {
           ? staticModules[currentIndex + 1] 
           : null;
 
+        // FIX FATAL: MENGGUNAKAN METHOD "PUT" AGAR TERSIMPAN DI MYSQL
         await fetch(`${API_URL}/profiles/${userId}`, {
-          method: 'PATCH',
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ 
             completed_modules: JSON.stringify(completedArr.filter(i => i && i !== "undefined")),
@@ -332,6 +338,7 @@ const ModulMateri = () => {
         setTaskCompleted(true);
     } else {
         alert(`Skor kamu ${finalScore}. Minimal 70 untuk lulus. Silakan coba lagi!`);
+        setScore(null);
         setAnswers({});
     }
   };
@@ -364,21 +371,14 @@ const ModulMateri = () => {
   };
 
   const speakExplanation = (text) => {
-    // Batalkan suara yang sedang berjalan jika ada
     window.speechSynthesis.cancel();
-
     const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Mengatur bahasa ke Bahasa Indonesia
     utterance.lang = 'id-ID'; 
-    utterance.rate = 1.0; // Kecepatan bicara
-    utterance.pitch = 1.0; // Nada suara
-
-    // Opsional: Pilih voice yang terdengar lebih natural jika tersedia
+    utterance.rate = 1.0; 
+    utterance.pitch = 1.0; 
     const voices = window.speechSynthesis.getVoices();
     const indoVoice = voices.find(v => v.lang.includes('id'));
     if (indoVoice) utterance.voice = indoVoice;
-
     window.speechSynthesis.speak(utterance);
   };
 
@@ -407,7 +407,25 @@ const ModulMateri = () => {
                 <div className="flex flex-col gap-2">
                   {modul.pages.map((page, pIdx) => {
                     const isCurrentActive = String(modul.id) === String(currentModul.id) && pIdx === currentPageIndex;
-                    const isLocked = String(modul.id) === String(currentModul.id) ? pIdx > maxUnlockedIndex : false; 
+                    
+                    // FIX LOGIKA SIDEBAR KETAT: Kunci atau Buka Halaman
+                    const isThisModuleCompleted = completedModules.includes(String(modul.id));
+                    const isModulUnlocked = mIdx === 0 || completedModules.includes(String(staticModules[mIdx - 1]?.id));
+
+                    let isLocked = true;
+                    if (String(modul.id) === String(currentModul.id)) {
+                        // Jika berada di modul saat ini, ikuti maxUnlockedIndex
+                        isLocked = pIdx > maxUnlockedIndex;
+                    } else {
+                        // Modul Lain
+                        if (isThisModuleCompleted) {
+                            isLocked = false; // Modul sudah tamat, buka semua halaman untuk direview
+                        } else if (isModulUnlocked && pIdx === 0) {
+                            isLocked = false; // Modul berhak diakses, tapi baru boleh lihat halaman pertama
+                        } else {
+                            isLocked = true;  // KUNCI halaman lainnya secara mutlak!
+                        }
+                    }
 
                     return (
                       <button 
@@ -416,10 +434,11 @@ const ModulMateri = () => {
                         onClick={() => { 
                           if (String(modul.id) !== String(currentModul.id)) {
                             navigate(`/materi/${modul.id}`);
+                          } else {
+                            setCurrentPageIndex(pIdx); 
+                            setIsEvaluating(false); 
                           }
-                          setCurrentPageIndex(pIdx); 
                           setIsSidebarOpen(false);
-                          setIsEvaluating(false); 
                         }}
                         className={`text-left p-3 rounded-xl transition-all border text-xs ${isCurrentActive ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : !isLocked ? 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:bg-slate-800 hover:text-white' : 'bg-slate-950/50 border-transparent text-slate-700 cursor-not-allowed opacity-40'}`}
                       >
@@ -469,7 +488,7 @@ const ModulMateri = () => {
                 ) : score >= 70 ? (
                     <div className="bg-emerald-500/20 border border-emerald-500/50 p-6 rounded-2xl text-center text-emerald-400">
                         <p className="text-2xl font-black">Skor: {score} - LULUS! 🎉</p>
-                        <p className="text-sm">Silakan klik tombol di bawah untuk menyelesaikan modul.</p>
+                        <p className="text-sm">Silakan klik tombol di bawah untuk menyimpan modul ke Home.</p>
                     </div>
                 ) : null}
             </section>
@@ -563,7 +582,6 @@ const ModulMateri = () => {
                         theme="vs-dark"
                       />
                     </div>
-                    {/* FIX: Tombol Hint yang muncul setelah 5 kali gagal */}
                     {failCount >= 5 && (
                       <button 
                         onClick={() => editorRef.current?.setValue(currentPage?.answerCode || "")}

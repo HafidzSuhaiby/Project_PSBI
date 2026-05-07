@@ -11,16 +11,24 @@ const Home = () => {
   const [allModules, setAllModules] = useState(staticModules); 
   const [session, setSession] = useState(null); 
   const [userProgress, setUserProgress] = useState({
-    level: 1, xp: 0, streak: 1, accuracy: 100, completedModules: [], currentModuleId: 1
+    level: 1, xp: 0, streak: 0, accuracy: 0, completedModules: [], currentModuleId: 1
   });
 
   useEffect(() => {
+    // 1. Generate System Hint secara acak
+    const tips = [
+      "Gunakan huruf kapital untuk awalan nama Class (misal: class Hero).",
+      "Gunakan kata kunci 'pass' jika Class masih kosong agar tidak error.",
+      "Fungsi __init__ berguna untuk memasukkan atribut saat objek pertama kali dibuat.",
+      "Satu blueprint (Class) bisa mencetak ribuan Object!"
+    ];
+    setDailyTip(tips[Math.floor(Math.random() * tips.length)]);
+
     const fetchUserData = async () => {
       try {
         const token = localStorage.getItem('auth_token');
         if (!token) return;
 
-        // 1. Ambil Data Auth
         const authRes = await fetch(`${API_URL}/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -30,56 +38,121 @@ const Home = () => {
         if (userData) {
           setSession(userData);
           
-          // 2. Ambil Data Profile
           const res = await fetch(`${API_URL}/profiles/${userData.id}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          
-          if (!res.ok) throw new Error("Profile tidak ditemukan (404)");
-
           const resJson = await res.json();
           const profile = resJson.data || resJson;
 
+          // Ambil data dasar dari DB
           let currentXP = Number(profile.xp) || 0;
           let currentLevel = Number(profile.level) || 1;
+          let currentStreak = Number(profile.streak) || 0;
+          let currentAccuracy = Number(profile.accuracy) || 0;
 
-          // --- LOGIKA CLAIM DAILY XP ---
-          // Kita panggil fungsi ini di sini agar XP bertambah saat login/refresh pertama kali
-          await claimDailyXP(currentXP, userData.id);
-          // Update lokal agar UI sinkron (tambah 10)
-          currentXP += 10;
+          // 1. TANGGAL HARI INI (WIB / Lokal)
+          const today = new Date();
+          const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-          // --- LOGIKA AUTO LEVEL UP ---
-          const xpTarget = currentLevel * 100;
-          if (currentXP >= xpTarget) {
-            const nextLevel = currentLevel + 1;
-            const leftoverXP = currentXP - xpTarget;
+          // 2. FIX FATAL: Parse Tanggal MySQL dengan Benar (Anti-UTC Bug)
+          let lastLoginInDB = null;
+          if (profile.last_login) {
+            // Memasukkan tanggal dari MySQL ke Object Date agar browser mengonversinya ke WIB
+            const dbDate = new Date(profile.last_login);
+            const y = dbDate.getFullYear();
+            const m = String(dbDate.getMonth() + 1).padStart(2, '0');
+            const d = String(dbDate.getDate()).padStart(2, '0');
+            lastLoginInDB = `${y}-${m}-${d}`;
+          }
 
+          let needsDbUpdate = false;
+
+          // 3. LOGIKA STREAK & XP HARIAN
+          if (lastLoginInDB !== todayStr) {
+            needsDbUpdate = true; // Tandai bahwa database perlu di-update
+
+            // Kalkulasi Streak Presisi
+            if (lastLoginInDB) {
+              const lastDate = new Date(lastLoginInDB);
+              const currentDate = new Date(todayStr);
+
+              const diffMs = currentDate.getTime() - lastDate.getTime();
+              const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+              if (diffDays === 1) {
+                currentStreak += 1;
+              } else if (diffDays > 1) {
+                currentStreak = 1;
+              }
+            } else {
+              currentStreak = 1; // Jika baru pertama kali login
+            }
+
+            // Tambah XP Harian (Hanya terjadi jika hari benar-benar berganti!)
+            currentXP += 10;
+          }
+
+          // --- SAFETY NET: Jika karena bug sebelumnya streak nyangkut di 0 ---
+          if (currentStreak === 0) {
+            currentStreak = 1;
+            needsDbUpdate = true;
+          }
+
+          // 4. LOGIKA AUTO LEVEL UP
+          let xpTarget = currentLevel * 100;
+          while (currentXP >= xpTarget) {
+            currentLevel += 1;
+            currentXP -= xpTarget;
+            xpTarget = currentLevel * 100; // Hitung target level berikutnya
+            needsDbUpdate = true;
+          }
+
+          // 5. EKSEKUSI PENYIMPANAN KE DATABASE (HANYA JIKA ADA PERUBAHAN)
+          if (needsDbUpdate) {
             await fetch(`${API_URL}/profiles/${userData.id}`, {
               method: 'PUT',
               headers: { 
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ level: nextLevel, xp: leftoverXP })
+              body: JSON.stringify({ 
+                xp: currentXP, 
+                level: currentLevel,
+                streak: currentStreak, 
+                last_login: todayStr 
+              })
             });
-            
-            currentLevel = nextLevel;
-            currentXP = leftoverXP;
+            // Gembok cadangan di UI
+            localStorage.setItem('last_xp_claim_date', todayStr); 
           }
 
-          // Set State
-          const completedArr = Array.isArray(profile.completed_modules) 
-            ? profile.completed_modules 
-            : JSON.parse(profile.completed_modules || "[]");
+          // =====================================================================
+          // 3. AMBIL DATA PROGRESS YANG SUDAH SINKRON DARI DATABASE
+          // =====================================================================
+          let completedArr = [];
+          try {
+            const raw = profile.completed_modules;
+            completedArr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
+          } catch (e) {
+            completedArr = [];
+          }
+
+          // --- FIX LOGIKA AKURASI ---
+          if (currentAccuracy === 0 && completedArr.length > 0) {
+            currentAccuracy = 100;
+          }
+
+          // Tentukan Modul Berikutnya untuk Roadmap dan Tombol "Mulai Misi"
+          const highestCompleted = completedArr.length > 0 ? Math.max(...completedArr.map(Number)) : 0;
+          const activeModuleId = profile.current_module_id || (highestCompleted + 1);
 
           setUserProgress({
             level: currentLevel,
             xp: currentXP,
-            streak: Number(profile.streak) || 0,
-            accuracy: Number(profile.accuracy) || 0,
+            streak: currentStreak,
+            accuracy: currentAccuracy,
             completedModules: completedArr,
-            currentModuleId: profile.current_module_id || (completedArr.length + 1)
+            currentModuleId: activeModuleId
           });
         }
       } catch (err) {
@@ -87,41 +160,56 @@ const Home = () => {
       }
     };
 
-  // Definisikan fungsi claim di luar fetchUserData atau di dalamnya tapi pastikan DIPANGGIL
-  const claimDailyXP = async (currentXP, profileId) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const updatedXP = currentXP + 10; 
+    fetchUserData();
+  }, []);
 
-      await fetch(`${API_URL}/profiles/${profileId}`, {
-        method: 'PUT', // Coba ganti ke PUT jika PATCH 404
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ xp: updatedXP })
-      });
-    } catch (error) {
-      console.error("Gagal mencatat XP harian:", error);
-    }
+  const renderRoadmap = () => {
+    return allModules.map((step, index) => {
+      const isDone = userProgress.completedModules.includes(String(step.id));
+      const isCurrent = String(userProgress.currentModuleId) === String(step.id);
+      const isLocked = !isDone && !isCurrent;
+
+      return (
+        <React.Fragment key={step.id}>
+          <button 
+            onClick={() => handleRoadmapClick(step.id, isLocked)}
+            className={`flex flex-col items-center gap-2 group shrink-0 min-w-[70px] transition-transform ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110'}`}
+          >
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all z-10 ${
+              isDone ? 'bg-fuchsia-500 text-white shadow-[0_0_15px_rgba(217,70,239,0.5)]' : 
+              isCurrent ? 'bg-slate-800 border-2 border-indigo-500 text-indigo-400 animate-pulse' : 
+              'bg-slate-900 border border-slate-800 text-slate-600'
+            }`}>
+              {isDone ? '✓' : index + 1}
+            </div>
+            <span className={`text-[10px] uppercase tracking-wider font-semibold text-center leading-tight px-2 w-full ${isLocked ? 'text-slate-600' : 'text-slate-400'}`}>
+              {String(step.title).split(':')[0]}
+            </span>
+          </button>
+          
+          {index < allModules.length - 1 && (
+            <div className={`w-8 md:w-16 h-[2px] -mt-6 mx-1 shrink-0 ${isDone ? 'bg-gradient-to-r from-fuchsia-500 to-indigo-500' : 'bg-slate-800'}`}></div>
+          )}
+        </React.Fragment>
+      );
+    });
   };
 
-  fetchUserData();
-}, []);
-
-  const xpTarget = (Number(userProgress.level) || 1) * 100; // FIX: Pastikan target XP valid
-  const xpPercentage = Math.min((Number(userProgress.xp) / xpTarget) * 100, 100); // FIX: Pastikan progress bar akurat sesuai data database
+  const xpTarget = (Number(userProgress.level) || 1) * 100;
+  const xpPercentage = Math.min((Number(userProgress.xp) / xpTarget) * 100, 100);
   
-  // FIX: Sinkronkan tipe data ID (string vs int) agar pencarian nextModule akurat
   const nextModule = allModules.find(m => String(m.id) === String(userProgress.currentModuleId)) || allModules[0] || { title: "Memuat..." };
 
-  // DINAMIS: Misi harian dicek berdasarkan data userProgress dari database
+  // DINAMIS: Misi harian
+  const todayStrUI = new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, '0') + "-" + String(new Date().getDate()).padStart(2, '0');
+  const isLoginDone = localStorage.getItem('last_xp_claim_date') === todayStrUI;
+
   const dailyMissions = [
     {
       id: 1,
       text: "Akses Lab hari ini",
       xp: 10,
-      isDone: !!session 
+      isDone: isLoginDone
     },
     {
       id: 2,
@@ -165,7 +253,7 @@ const Home = () => {
             PYNARA v1.0 — Lab Terbuka
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
-            Halo, <span className="text-indigo-400">Programmer</span> 👋
+            Halo, <span className="text-indigo-400">Programmer</span>
           </h1>
           <p className="text-lg text-slate-400 leading-relaxed">
             Ruang kerjamu sudah siap. Mari lanjutkan misimu dan sempurnakan kodemu hari ini.
@@ -304,7 +392,7 @@ const Home = () => {
         {/* ROADMAP SECTION */}
         <section className="lg:col-span-3 mt-2 flex flex-col gap-4">
           <div className="w-full bg-[#0d0d12] border border-slate-800 rounded-2xl p-4 flex items-center gap-4 shadow-inner">
-              <div className="text-fuchsia-500 animate-pulse">❯_</div>
+              <div className="text-fuchsia-500 animate-pulse font-bold">❯_</div>
               <p className="font-mono text-xs text-slate-400">
                 <span className="text-emerald-400 font-bold">System.Hint: </span> 
                 {dailyTip}
@@ -327,9 +415,10 @@ const Home = () => {
 
                   return (
                     <React.Fragment key={step.id}>
+                      {/* FIX 3: Tambah shrink-0 pada button agar tidak gepeng */}
                       <button 
                         onClick={() => handleRoadmapClick(step.id, isLocked)}
-                        className={`flex flex-col items-center gap-2 group min-w-[60px] transition-transform ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110'}`}
+                        className={`flex flex-col items-center gap-2 group shrink-0 min-w-[60px] transition-transform ${isLocked ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-110'}`}
                       >
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all z-10 ${
                           isDone ? 'bg-fuchsia-500 text-white shadow-[0_0_15px_rgba(217,70,239,0.5)]' : 
@@ -343,8 +432,9 @@ const Home = () => {
                         </span>
                       </button>
                       
+                      {/* FIX 3: Tambah shrink-0 pada garis penghubung */}
                       {index < allModules.length - 1 && (
-                        <div className={`w-12 md:w-16 h-[2px] -mt-6 mx-1 ${isDone ? 'bg-gradient-to-r from-fuchsia-500 to-indigo-500' : 'bg-slate-800'}`}></div>
+                        <div className={`w-8 md:w-16 h-[2px] -mt-6 mx-1 shrink-0 ${isDone ? 'bg-gradient-to-r from-fuchsia-500 to-indigo-500' : 'bg-slate-800'}`}></div>
                       )}
                     </React.Fragment>
                   );

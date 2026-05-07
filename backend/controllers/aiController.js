@@ -3,10 +3,14 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+// HAPUS inisialisasi groq dari sini (baris 6 yang sebelumnya: const groq = new Groq...)
 
 export const analyzeWithGemini = async (req, res) => {
     try {
+        // PINDAHKAN INISIALISASINYA KE SINI
+        // Memastikan env sudah terbaca saat fungsi ini dipanggil
+        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        
         const { text: extractedText } = req.body;
 
         if (!extractedText) {
@@ -53,7 +57,7 @@ WAJIB MENGIKUTI STRUKTUR JSON BERIKUT:
     {
       "question": "Pertanyaan soal",
       "options": ["Opsi A", "Opsi B", "Opsi C", "Opsi D"],
-      "answer": index_jawaban_benar (0-3)
+      "answer": 0
     }
   ]
 }` 
