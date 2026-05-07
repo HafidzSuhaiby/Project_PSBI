@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { modules as staticModules } from '../data/modules';
 
-// FIX MYSQL: Pastikan API_URL benar
-const API_URL = "http://localhost:5000/api"; 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api"; 
 
 const Home = () => {
   const navigate = useNavigate();

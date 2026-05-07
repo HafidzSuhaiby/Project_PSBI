@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import Draggable from 'react-draggable';
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const ModulMateri = () => {
   const { id } = useParams();
@@ -346,28 +346,60 @@ const ModulMateri = () => {
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!chatInput.trim() || isTyping) return;
+    
     const userMsg = chatInput;
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setChatInput('');
     setIsTyping(true);
+    
     try {
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      
+      // CEK 1: Apakah API Key terbaca oleh React?
+      if (!apiKey) {
+        setMessages(prev => [...prev, { role: 'ai', text: "🚨 API Key tidak terbaca! Pastikan Anda sudah memasukkan VITE_GEMINI_API_KEY di file .env dan melakukan restart terminal Frontend (npm run dev)." }]);
+        setIsTyping(false);
+        return;
+      }
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: { 
-          "Content-Type": "application/json", 
-          "Authorization": `Bearer ${import.meta.env.VITE_GROQ_API_KEY}` 
+          "Content-Type": "application/json" 
         },
         body: JSON.stringify({
-          model: "llama-3.1-8b-instant",
-          messages: [
-            { role: "system", content: "Anda adalah Pynara, pakar Python. Jawab singkat dan berikan bantuan logika." },
-            { role: "user", content: `Misi saat ini: ${currentPage?.mission}. Kode saat ini: ${editorRef.current?.getValue()}. Pertanyaan: ${userMsg}` }
+          systemInstruction: {
+            parts: [{ text: "Anda adalah Pynara, pakar Python. Jawab singkat dan berikan bantuan logika." }]
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `Misi saat ini: ${currentPage?.mission || "Tidak ada"}. Kode saat ini: \n${editorRef.current?.getValue() || ""}\n\nPertanyaan: ${userMsg}` }]
+            }
           ]
         })
       });
+      
       const data = await response.json();
-      setMessages(prev => [...prev, { role: 'ai', text: data.choices[0].message.content }]);
-    } catch (error) { console.error(error); } finally { setIsTyping(false); }
+      
+      // CEK 2: Apakah Google menolak permintaan kita?
+      if (!response.ok) {
+        console.error("Error dari Google Gemini API:", data);
+        setMessages(prev => [...prev, { role: 'ai', text: `🚨 Ditolak oleh Google: ${data.error?.message || "Terjadi kesalahan pada API"}` }]);
+        setIsTyping(false);
+        return;
+      }
+
+      // Jika sukses, tangkap teks balasan
+      const aiResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, format balasan Gemini tidak sesuai.";
+      setMessages(prev => [...prev, { role: 'ai', text: aiResponseText }]);
+      
+    } catch (error) { 
+      console.error("Fetch error:", error); 
+      setMessages(prev => [...prev, { role: 'ai', text: "🚨 Gagal mengirim. Cek koneksi internet atau console browser Anda." }]);
+    } finally { 
+      setIsTyping(false); 
+    }
   };
 
   const speakExplanation = (text) => {
