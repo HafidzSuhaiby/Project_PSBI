@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 // FIX MYSQL: Import supabase dihapus karena beralih ke MySQL via API
 import { Link } from 'react-router-dom';
+import Swal from 'sweetalert2'; // FIX: Impor SweetAlert2 untuk notifikasi profesional
 
 // FIX MYSQL: Definisi base URL disesuaikan dengan prefix di server.js (/api/ai)
 const API_URL = "http://localhost:5000/api/ai"; 
@@ -40,9 +41,22 @@ const LibrarySiswa = () => {
 
   const handleDelete = async (e, id) => {
     e.preventDefault();
-    const confirmDelete = window.confirm("Hapus modul ini dari library?");
     
-    if (confirmDelete) {
+    // FIX: Mengganti window.confirm dengan SweetAlert2 yang lebih profesional
+    const result = await Swal.fire({
+      title: 'Hapus Modul?',
+      text: "Data yang dihapus tidak dapat dikembalikan!",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#1e293b',
+      confirmButtonText: 'Ya, Hapus!',
+      cancelButtonText: 'Batal',
+      background: '#0f172a',
+      color: '#fff'
+    });
+    
+    if (result.isConfirmed) {
       try {
         // FIX MYSQL: Endpoint DELETE disesuaikan dengan API_URL baru
         const response = await fetch(`${API_URL}/modules_ai/${id}`, {
@@ -55,8 +69,27 @@ const LibrarySiswa = () => {
         }
         
         setAiModules(aiModules.filter(item => item.id !== id));
+
+        // FIX: Notifikasi sukses setelah berhasil menghapus
+        Swal.fire({
+          title: 'Terhapus!',
+          text: 'Modul berhasil dihapus dari library.',
+          icon: 'success',
+          background: '#0f172a',
+          color: '#fff',
+          confirmButtonColor: '#6366f1',
+          timer: 2000
+        });
       } catch (error) {
-        alert("Gagal menghapus: " + error.message);
+        // FIX: Mengganti alert browser dengan SweetAlert2 error
+        Swal.fire({
+          title: 'Gagal!',
+          text: error.message,
+          icon: 'error',
+          background: '#0f172a',
+          color: '#fff',
+          confirmButtonColor: '#6366f1'
+        });
       }
     }
   };

@@ -604,7 +604,7 @@ class Hero:
       "pages": [
         {
           "subtitle": "Konsep Dasar Pewarisan",
-          "youtubeId": null,
+          "youtubeId": "8RZnR5luqw",
           "content": [
             {
               "text": "Inheritance atau pewarisan memungkinkan sebuah class (disebut **Child Class**) untuk mewarisi attribute dan method dari class lain (disebut **Parent Class**)[cite: 1]. \n\nKonsep ini sangat berguna untuk **reusability** (penggunaan kembali kode), di mana kita tidak perlu menulis ulang logika yang sama untuk class yang memiliki karakteristik serupa.",
@@ -726,7 +726,7 @@ class Hero:
       "pages": [
         {
           "subtitle": "Apa itu Polimorfisme?",
-          "youtubeId": null,
+          "youtubeId": "flxFBcAiW28",
           "content": [
             {
               "text": "Polymorphism berasal dari bahasa Yunani yang berarti **'banyak bentuk'**. Dalam pemrograman OOP, polimorfisme memungkinkan satu interface (nama method yang sama) digunakan untuk berbagai tipe data atau class yang berbeda[cite: 1].\n\nIntinya, kita bisa memanggil method yang sama pada object yang berbeda, dan setiap object akan merespons dengan caranya masing-masing.",

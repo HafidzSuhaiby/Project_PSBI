@@ -1,6 +1,8 @@
 // src/pages/Register.jsx
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import Swal from 'sweetalert2'; // FIX: Menggunakan SweetAlert2 untuk notifikasi profesional
+import { Eye, EyeOff } from 'lucide-react'; // FIX: Menambahkan icon mata
 
 // FIX MYSQL: Pastikan endpoint mencakup /auth sesuai route di server.js
 const API_URL = "http://localhost:5000/api/auth/register"; 
@@ -8,6 +10,7 @@ const API_URL = "http://localhost:5000/api/auth/register";
 const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // FIX: State untuk lihat/tutup password
   const [fullName, setFullName] = useState('');
   // Menambahkan field major agar sesuai dengan kebutuhan database (profiles)
   const [major, setMajor] = useState('Pendidikan Teknik Informatika'); 
@@ -35,15 +38,39 @@ const Register = () => {
       const result = await response.json();
 
       if (!response.ok) {
-        // Menampilkan pesan error spesifik dari backend (misal: "User sudah terdaftar")
-        alert(result.error || result.message || 'Terjadi kesalahan saat registrasi.');
+        // FIX: Notifikasi Error yang lebih bagus
+        Swal.fire({
+          icon: 'error',
+          title: 'Registrasi Gagal',
+          text: result.error || result.message || 'Terjadi kesalahan saat registrasi.',
+          background: '#0f172a',
+          color: '#fff',
+          confirmButtonColor: '#4f46e5'
+        });
       } else {
-        alert('Registrasi berhasil! Silakan login dengan akun baru Anda.');
-        navigate('/login');
+        // FIX: Notifikasi Berhasil (Pop-up bagus)
+        Swal.fire({
+          icon: 'success',
+          title: 'Berhasil!',
+          text: 'Registrasi berhasil! Silakan login dengan akun baru Anda.',
+          background: '#0f172a',
+          color: '#fff',
+          confirmButtonColor: '#4f46e5'
+        }).then(() => {
+          navigate('/login');
+        });
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Gagal terhubung ke server. Pastikan backend sudah menyala di port 5000.');
+      // FIX: Notifikasi Kesalahan Jaringan
+      Swal.fire({
+        icon: 'warning',
+        title: 'Koneksi Terputus',
+        text: 'Gagal terhubung ke server. Pastikan backend sudah menyala.',
+        background: '#0f172a',
+        color: '#fff',
+        confirmButtonColor: '#4f46e5'
+      });
     } finally {
       setLoading(false);
     }
@@ -78,14 +105,24 @@ const Register = () => {
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Password</label>
-            <input
-              type="password"
-              className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              placeholder="••••••••"
-            />
+            <div className="relative"> {/* FIX: Container relatif untuk posisi icon */}
+              <input
+                type={showPassword ? "text" : "password"} // FIX: Toggle tipe input
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              >
+                {/* FIX: Render icon mata berdasarkan state */}
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
           <button
             type="submit"

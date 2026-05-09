@@ -6,6 +6,7 @@ import { loadPyodide } from 'pyodide';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import Draggable from 'react-draggable';
+import Swal from 'sweetalert2'; // FIX: Pastikan impor Swal tersedia
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -22,9 +23,7 @@ const ModulMateri = () => {
   const [code, setCode] = useState(""); 
   const [userId, setUserId] = useState(null);
   
-  // FIX: Menyimpan data modul mana saja yang sudah ditamatkan secara mutlak
   const [completedModules, setCompletedModules] = useState([]);
-
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [answers, setAnswers] = useState({});
   const [score, setScore] = useState(null);
@@ -32,6 +31,7 @@ const ModulMateri = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); 
   const [maxUnlockedIndex, setMaxUnlockedIndex] = useState(0); 
+  const [expandedModuleId, setExpandedModuleId] = useState(null); 
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState([
     { role: 'ai', text: 'Halo! Aku Pynara. Ada yang ingin ditanyakan tentang kode Python di halaman ini?' }
@@ -76,8 +76,6 @@ const ModulMateri = () => {
             
             if (currentUserId) {
               setUserId(currentUserId);
-
-              // AMBIL DATA PROFIL UNTUK MENGUNCI SIDEBAR SECARA KETAT
               try {
                 const profileRes = await fetch(`${API_URL}/profiles/${currentUserId}`, {
                   headers: { 'Authorization': `Bearer ${token}` }
@@ -91,30 +89,22 @@ const ModulMateri = () => {
                 }
               } catch (err) { console.error("Error get profile", err); }
               
-              // AMBIL PROGRES HALAMAN TERAKHIR
               try {
                 const progressRes = await fetch(`${API_URL}/users-progress/${currentUserId}/${cleanTargetId}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
                 if (progressRes.ok) {
                     const resJson = await progressRes.json();
                     const progressData = resJson.data; 
-                    
                     if (progressData) { 
                       lastSavedPage = parseInt(progressData.last_page_index) || 0;
-                      // TANGKAP BOOLEAN ATAU ANGKA
                       alreadyCompleted = (progressData.is_completed === 1 || progressData.is_completed === true);
                     }
                 }
-              } catch (err) {
-                console.error("Gagal mengambil progres spesifik modul:", err);
-              }
+              } catch (err) { console.error("Gagal mengambil progres spesifik modul:", err); }
             }
           }
-        } catch (err) {
-          console.error("Error sync progress:", err);
-        }
+        } catch (err) { console.error("Error sync progress:", err); }
       }
 
       let loadedModul = null;
@@ -151,13 +141,11 @@ const ModulMateri = () => {
 
       if (loadedModul) {
         setCurrentModul(loadedModul);
-        // FIX: Jika sudah tamat, buka semua halaman, tapi selalu arahkan ke halaman 1 sebagai awal
+        setExpandedModuleId(String(loadedModul.id)); 
         const validPageIndex = alreadyCompleted ? 0 : (lastSavedPage >= 0 && lastSavedPage < (loadedModul.pages?.length || 0)) ? lastSavedPage : 0;
         setCurrentPageIndex(validPageIndex);
         setMaxUnlockedIndex(alreadyCompleted ? (loadedModul.pages?.length || 0) : lastSavedPage); 
         setTaskCompleted(alreadyCompleted); 
-
-        // FIX BUG EVALUASI: Paksa matikan status ujian setiap kali ganti modul
         setIsEvaluating(false);
         setScore(null);
         setAnswers({});
@@ -195,25 +183,42 @@ const ModulMateri = () => {
     if (!pyodide || !currentPage) return;
     const userCode = editorRef.current ? editorRef.current.getValue() : code;
     setOutput('Sedang memproses kode...');
-    
     try {
       pyodide.runPython(`import sys, io\nsys.stdout = io.StringIO()`);
       await pyodide.runPythonAsync(userCode);
       const stdout = pyodide.runPython("sys.stdout.getvalue()").trim();
       setOutput(stdout || "Program selesai dijalankan.");
-      
       const normalize = (str) => (str || "").toLowerCase().replace(/\s+/g, '').replace(/['"]/g, '"');
       const cleanOutput = normalize(stdout);
       const cleanUserCode = normalize(userCode);
       const cleanTarget = normalize(currentPage.check || "print");
-
       if (cleanOutput.includes(cleanTarget) || cleanUserCode.includes(cleanTarget)) {
         setTaskCompleted(true);
         setFailCount(0);
+        // FIX: Notifikasi sukses pengerjaan misi
+        Swal.fire({
+          icon: 'success',
+          title: 'Misi Berhasil!',
+          text: currentPage.successMsg || 'Bagus! Kamu berhasil menyelesaikan misi ini.',
+          background: '#0f172a',
+          color: '#fff',
+          confirmButtonColor: '#6366f1'
+        });
         speakExplanation(currentPage.voiceSummary || "Bagus! Kamu berhasil menyelesaikan misi ini.");
       } else {
         setTaskCompleted(false);
         setFailCount(prev => prev + 1);
+        // FIX: Notifikasi jika output belum sesuai
+        if (failCount >= 1) {
+          Swal.fire({
+            icon: 'info',
+            title: 'Hampir Tepat!',
+            text: 'Coba periksa kembali instruksi misi atau gunakan bantuan AI Pynara.',
+            background: '#0f172a',
+            color: '#fff',
+            confirmButtonColor: '#f59e0b'
+          });
+        }
       }
     } catch (err) { 
       setOutput(`Error: ${err.message}`); 
@@ -230,7 +235,6 @@ const ModulMateri = () => {
 
     if (currentPageIndex < currentModul.pages.length - 1) {
       const nextIdx = currentPageIndex + 1;
-      
       if (userId && token) {
         try {
           await fetch(`${API_URL}/users-progress`, {
@@ -246,7 +250,6 @@ const ModulMateri = () => {
           });
         } catch (err) { console.error("Gagal update progress:", err); }
       }
-      
       if (nextIdx > maxUnlockedIndex) setMaxUnlockedIndex(nextIdx); 
       setTaskCompleted(false); 
       setCurrentPageIndex(nextIdx);
@@ -268,23 +271,18 @@ const ModulMateri = () => {
         });
         const profileData = await profileRes.json();
         const currentProfile = profileData.data || profileData;
-
         let completedArr = [];
         try {
             const raw = currentProfile.completed_modules;
             completedArr = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : []);
         } catch (e) { completedArr = []; }
-
         if (!completedArr.map(String).includes(rawId)) {
           completedArr.push(rawId);
         }
-
         const currentIndex = staticModules.findIndex(m => String(m.id) === rawId);
         const nextModul = (currentIndex !== -1 && currentIndex < staticModules.length - 1) 
           ? staticModules[currentIndex + 1] 
           : null;
-
-        // FIX FATAL: MENGGUNAKAN METHOD "PUT" AGAR TERSIMPAN DI MYSQL
         await fetch(`${API_URL}/profiles/${userId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -294,33 +292,36 @@ const ModulMateri = () => {
             current_module_id: nextModul ? String(nextModul.id) : cleanModuleId 
           })
         });
-
         await fetch(`${API_URL}/users-progress`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ 
-            user_id: userId,
-            module_id: cleanModuleId,
-            last_page_index: currentPageIndex,
-            is_completed: true,
-            xp_earned: 50
-          })
+          body: JSON.stringify({ user_id: userId, module_id: cleanModuleId, last_page_index: currentPageIndex, is_completed: true, xp_earned: 50 })
         });
         
-        if (currentModul.isAI) {
-          alert("Modul AI Selesai! 🏆");
-          navigate('/');
-        } else if (nextModul) {
-          alert("Modul Selesai! Lanjut ke modul berikutnya. 🏆");
-          navigate(`/materi/${nextModul.id}`);
-        } else {
-          alert("Selamat! Semua modul telah diselesaikan. 🏆");
-          navigate('/');
-        }
+        // FIX: Notifikasi Selesai Modul Profesional
+        Swal.fire({
+          icon: 'success',
+          title: 'Modul Selesai! 🏆',
+          text: nextModul ? 'Lanjut ke modul berikutnya untuk tantangan baru.' : 'Selamat! Kamu telah menyelesaikan semua materi.',
+          background: '#0f172a',
+          color: '#fff',
+          confirmButtonColor: '#c026d3'
+        }).then(() => {
+          if (currentModul.isAI) { navigate('/'); } 
+          else if (nextModul) { navigate(`/materi/${nextModul.id}`); } 
+          else { navigate('/'); }
+        });
       }
     } catch (error) {
       console.error("Gagal proses selesai modul:", error);
-      alert("Terjadi kesalahan saat menyimpan progress.");
+      // FIX: Notifikasi Error simpan progress
+      Swal.fire({
+        icon: 'error',
+        title: 'Oops...',
+        text: 'Terjadi kesalahan saat menyimpan progress.',
+        background: '#0f172a',
+        color: '#fff'
+      });
     } finally {
       setIsLoading(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -329,85 +330,69 @@ const ModulMateri = () => {
 
   const handleSubmitEvaluation = () => {
     let correct = 0;
-    currentModul.evaluation.forEach((q, idx) => {
-        if (answers[idx] === q.answer) correct++;
-    });
+    currentModul.evaluation.forEach((q, idx) => { if (answers[idx] === q.answer) correct++; });
     const finalScore = Math.round((correct / currentModul.evaluation.length) * 100);
     setScore(finalScore);
-    if (finalScore >= 70) {
-        setTaskCompleted(true);
-    } else {
-        alert(`Skor kamu ${finalScore}. Minimal 70 untuk lulus. Silakan coba lagi!`);
-        setScore(null);
-        setAnswers({});
+    
+    if (finalScore >= 70) { 
+      setTaskCompleted(true);
+      // FIX: Notifikasi Lulus Evaluasi
+      Swal.fire({
+        icon: 'success',
+        title: 'Lulus Evaluasi!',
+        text: `Skor kamu ${finalScore}. Hebat! Kamu sudah siap lanjut.`,
+        background: '#0f172a',
+        color: '#fff',
+        confirmButtonColor: '#10b981'
+      });
+    } 
+    else { 
+      // FIX: Notifikasi Gagal Evaluasi
+      Swal.fire({
+        icon: 'error',
+        title: 'Belum Lulus',
+        text: `Skor kamu ${finalScore}. Minimal 70 untuk lulus. Ayo coba lagi!`,
+        background: '#0f172a',
+        color: '#fff',
+        confirmButtonColor: '#ef4444'
+      });
+      setScore(null); 
+      setAnswers({}); 
     }
   };
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!chatInput.trim() || isTyping) return;
-    
     const userMsg = chatInput;
     setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
     setChatInput('');
     setIsTyping(true);
-    
     try {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      
-      // CEK 1: Apakah API Key terbaca oleh React?
       if (!apiKey) {
-        setMessages(prev => [...prev, { role: 'ai', text: "🚨 API Key tidak terbaca! Pastikan Anda sudah memasukkan VITE_GEMINI_API_KEY di file .env dan melakukan restart terminal Frontend (npm run dev)." }]);
-        setIsTyping(false);
-        return;
+        setMessages(prev => [...prev, { role: 'ai', text: "🚨 API Key tidak terbaca!" }]);
+        setIsTyping(false); return;
       }
-
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json" 
-        },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          systemInstruction: {
-            parts: [{ text: "Anda adalah Pynara, pakar Python. Jawab singkat dan berikan bantuan logika." }]
-          },
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: `Misi saat ini: ${currentPage?.mission || "Tidak ada"}. Kode saat ini: \n${editorRef.current?.getValue() || ""}\n\nPertanyaan: ${userMsg}` }]
-            }
-          ]
+          systemInstruction: { parts: [{ text: "Anda adalah Pynara, pakar Python. Jawab singkat dan berikan bantuan logika." }] },
+          contents: [{ role: "user", parts: [{ text: `Misi: ${currentPage?.mission}. Kode: \n${editorRef.current?.getValue()}\n\nPertanyaan: ${userMsg}` }] }]
         })
       });
-      
       const data = await response.json();
-      
-      // CEK 2: Apakah Google menolak permintaan kita?
-      if (!response.ok) {
-        console.error("Error dari Google Gemini API:", data);
-        setMessages(prev => [...prev, { role: 'ai', text: `🚨 Ditolak oleh Google: ${data.error?.message || "Terjadi kesalahan pada API"}` }]);
-        setIsTyping(false);
-        return;
-      }
-
-      // Jika sukses, tangkap teks balasan
+      if (!response.ok) { setIsTyping(false); return; }
       const aiResponseText = data.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, format balasan Gemini tidak sesuai.";
       setMessages(prev => [...prev, { role: 'ai', text: aiResponseText }]);
-      
-    } catch (error) { 
-      console.error("Fetch error:", error); 
-      setMessages(prev => [...prev, { role: 'ai', text: "🚨 Gagal mengirim. Cek koneksi internet atau console browser Anda." }]);
-    } finally { 
-      setIsTyping(false); 
-    }
+    } catch (error) { setMessages(prev => [...prev, { role: 'ai', text: "🚨 Gagal mengirim." }]); } 
+    finally { setIsTyping(false); }
   };
 
   const speakExplanation = (text) => {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'id-ID'; 
-    utterance.rate = 1.0; 
-    utterance.pitch = 1.0; 
+    utterance.lang = 'id-ID'; utterance.rate = 1.0; utterance.pitch = 1.0; 
     const voices = window.speechSynthesis.getVoices();
     const indoVoice = voices.find(v => v.lang.includes('id'));
     if (indoVoice) utterance.voice = indoVoice;
@@ -424,63 +409,45 @@ const ModulMateri = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-300 font-sans pb-20">
-      <div className={`fixed top-0 left-0 h-full w-80 bg-slate-900 border-r border-slate-800 z-[160] transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* Sidebar */}
+      <div className={`fixed top-0 left-0 h-full w-[85%] sm:w-80 bg-slate-900 border-r border-slate-800 z-[160] transition-transform duration-300 shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 h-full flex flex-col">
           <div className="flex justify-between items-center mb-8">
             <h3 className="text-white font-black uppercase tracking-widest text-sm">Kurikulum Pynara</h3>
-            <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-white">✕</button>
+            <button onClick={() => setIsSidebarOpen(false)} className="text-slate-500 hover:text-white p-2">✕</button>
           </div>
           <div className="flex-1 overflow-y-auto pr-2 flex flex-col gap-6">
             {staticModules.map((modul, mIdx) => (
               <div key={mIdx} className="flex flex-col gap-2">
-                <div className="px-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 opacity-80">
-                  Modul {mIdx + 1}: {modul.title}
+                {/* // FIX: Ubah header modul menjadi tombol toggle yang interaktif */}
+                <div 
+                  onClick={() => setExpandedModuleId(expandedModuleId === String(modul.id) ? null : String(modul.id))}
+                  className="px-2 py-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1 opacity-80 cursor-pointer hover:bg-slate-800/50 rounded-lg flex justify-between items-center transition-all group"
+                >
+                  <span className={expandedModuleId === String(modul.id) ? 'text-white' : ''}>
+                    Modul {mIdx + 1}: {modul.title}
+                  </span>
+                  <span className={`text-[8px] transition-transform ${expandedModuleId === String(modul.id) ? 'rotate-180 text-white' : ''}`}>▼</span>
                 </div>
-                <div className="flex flex-col gap-2">
-                  {modul.pages.map((page, pIdx) => {
-                    const isCurrentActive = String(modul.id) === String(currentModul.id) && pIdx === currentPageIndex;
-                    
-                    // FIX LOGIKA SIDEBAR KETAT: Kunci atau Buka Halaman
-                    const isThisModuleCompleted = completedModules.includes(String(modul.id));
-                    const isModulUnlocked = mIdx === 0 || completedModules.includes(String(staticModules[mIdx - 1]?.id));
-
-                    let isLocked = true;
-                    if (String(modul.id) === String(currentModul.id)) {
-                        // Jika berada di modul saat ini, ikuti maxUnlockedIndex
-                        isLocked = pIdx > maxUnlockedIndex;
-                    } else {
-                        // Modul Lain
-                        if (isThisModuleCompleted) {
-                            isLocked = false; // Modul sudah tamat, buka semua halaman untuk direview
-                        } else if (isModulUnlocked && pIdx === 0) {
-                            isLocked = false; // Modul berhak diakses, tapi baru boleh lihat halaman pertama
-                        } else {
-                            isLocked = true;  // KUNCI halaman lainnya secara mutlak!
-                        }
-                    }
-
-                    return (
-                      <button 
-                        key={pIdx} 
-                        disabled={isLocked}
-                        onClick={() => { 
-                          if (String(modul.id) !== String(currentModul.id)) {
-                            navigate(`/materi/${modul.id}`);
-                          } else {
-                            setCurrentPageIndex(pIdx); 
-                            setIsEvaluating(false); 
-                          }
-                          setIsSidebarOpen(false);
-                        }}
-                        className={`text-left p-3 rounded-xl transition-all border text-xs ${isCurrentActive ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : !isLocked ? 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:bg-slate-800 hover:text-white' : 'bg-slate-950/50 border-transparent text-slate-700 cursor-not-allowed opacity-40'}`}
-                      >
-                        <span className="font-mono mr-2 opacity-50">{pIdx + 1}.</span>
-                        <span className="font-bold">{page.subtitle || "Materi Utama"}</span>
-                        {isLocked && <span className="ml-2">🔒</span>}
-                      </button>
-                    );
-                  })}
-                </div>
+                
+                {/* // FIX: Tampilkan list part hanya jika expandedModuleId sesuai dengan ID modul */}
+                {expandedModuleId === String(modul.id) && (
+                  <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    {modul.pages.map((page, pIdx) => {
+                      const isCurrentActive = String(modul.id) === String(currentModul.id) && pIdx === currentPageIndex;
+                      const isThisModuleCompleted = completedModules.includes(String(modul.id));
+                      const isModulUnlocked = mIdx === 0 || completedModules.includes(String(staticModules[mIdx - 1]?.id));
+                      let isLocked = String(modul.id) === String(currentModul.id) ? pIdx > maxUnlockedIndex : !(isThisModuleCompleted || (isModulUnlocked && pIdx === 0));
+                      return (
+                        <button key={pIdx} disabled={isLocked} onClick={() => { if (String(modul.id) !== String(currentModul.id)) { navigate(`/materi/${modul.id}`); } else { setCurrentPageIndex(pIdx); setIsEvaluating(false); } setIsSidebarOpen(false); }} className={`text-left p-3 rounded-xl transition-all border text-xs ${isCurrentActive ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : !isLocked ? 'bg-slate-800/30 border-slate-700/50 text-slate-400 hover:bg-slate-800 hover:text-white' : 'bg-slate-950/50 border-transparent text-slate-700 cursor-not-allowed opacity-40'}`}>
+                          <span className="font-mono mr-2 opacity-50">{pIdx + 1}.</span>
+                          <span className="font-bold">{page.subtitle || "Materi Utama"}</span>
+                          {isLocked && <span className="ml-2">🔒</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -488,28 +455,24 @@ const ModulMateri = () => {
       </div>
       {isSidebarOpen && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150]" onClick={() => setIsSidebarOpen(false)}></div>}
 
-      <button onClick={() => setIsSidebarOpen(true)} className="fixed top-24 left-6 z-[100] w-12 h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-xl hover:bg-slate-800 transition-colors shadow-xl text-white">☰</button>
+      {/* Toggle Sidebar */}
+      <button onClick={() => setIsSidebarOpen(true)} className="fixed top-20 lg:top-24 left-4 lg:left-6 z-[100] w-10 h-10 lg:w-12 lg:h-12 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-center text-lg lg:text-xl hover:bg-slate-800 transition-colors shadow-xl text-white">☰</button>
 
-      <main className="max-w-5xl mx-auto p-6 lg:p-10 flex flex-col gap-12">
+      {/* Main Content */}
+      <main className="max-w-5xl mx-auto p-4 md:p-8 lg:p-10 flex flex-col gap-8 lg:gap-12 pt-32 lg:pt-36 overflow-hidden">
         {isEvaluating ? (
             <section className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-indigo-900/20 border border-indigo-500/30 p-8 rounded-[2.5rem]">
-                    <h1 className="text-3xl font-black text-white mb-2">Evaluasi Akhir Modul</h1>
-                    <p className="text-slate-400">Jawab pertanyaan berikut dengan benar untuk menyelesaikan modul ini.</p>
+                <div className="bg-indigo-900/20 border border-indigo-500/30 p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2.5rem]">
+                    <h1 className="text-2xl lg:text-3xl font-black text-white mb-2">Evaluasi Akhir Modul</h1>
+                    <p className="text-slate-400 text-sm lg:text-base">Jawab pertanyaan berikut dengan benar untuk menyelesaikan modul ini.</p>
                 </div>
                 <div className="flex flex-col gap-6">
                     {currentModul.evaluation.map((q, qIdx) => (
-                        <div key={qIdx} className="bg-slate-900/50 border border-slate-800 p-8 rounded-3xl">
-                            <h3 className="text-lg font-bold text-white mb-6"><span className="text-indigo-400 mr-2">Q{qIdx+1}.</span>{q.question}</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div key={qIdx} className="bg-slate-900/50 border border-slate-800 p-6 lg:p-8 rounded-2xl lg:rounded-3xl">
+                            <h3 className="text-base lg:text-lg font-bold text-white mb-6"><span className="text-indigo-400 mr-2">Q{qIdx+1}.</span>{q.question}</h3>
+                            <div className="grid grid-cols-1 gap-4">
                                 {q.options.map((opt, oIdx) => (
-                                    <button 
-                                        key={oIdx} 
-                                        onClick={() => setAnswers({...answers, [qIdx]: oIdx})}
-                                        className={`p-4 rounded-2xl border text-left transition-all ${answers[qIdx] === oIdx ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'}`}
-                                    >
-                                        {opt}
-                                    </button>
+                                    <button key={oIdx} onClick={() => setAnswers({...answers, [qIdx]: oIdx})} className={`p-4 rounded-2xl border text-left text-sm transition-all ${answers[qIdx] === oIdx ? 'bg-indigo-600 border-indigo-400 text-white shadow-lg' : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500'}`}>{opt}</button>
                                 ))}
                             </div>
                         </div>
@@ -519,70 +482,58 @@ const ModulMateri = () => {
                     <button onClick={handleSubmitEvaluation} className="bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-500 transition-all">Submit Jawaban</button>
                 ) : score >= 70 ? (
                     <div className="bg-emerald-500/20 border border-emerald-500/50 p-6 rounded-2xl text-center text-emerald-400">
-                        <p className="text-2xl font-black">Skor: {score} - LULUS! 🎉</p>
-                        <p className="text-sm">Silakan klik tombol di bawah untuk menyimpan modul ke Home.</p>
+                        <p className="text-xl lg:text-2xl font-black">Skor: {score} - LULUS! 🎉</p>
+                        <p className="text-xs lg:text-sm">Silakan klik tombol di bawah untuk menyimpan modul ke Home.</p>
                     </div>
                 ) : null}
             </section>
         ) : (
             <>
-                <section className="flex flex-col gap-8">
-                  <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-indigo-500/20 p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-                    <p className="text-indigo-400 font-mono text-xs uppercase tracking-widest mb-3">
-                      Part {currentPageIndex + 1} / {currentModul.pages.length}
-                    </p>
-                    <h1 className="text-4xl font-black text-white">{currentModul.title}</h1>
-                    
-                    {currentPage?.subtitle && (
-                      <h2 className="text-xl font-bold text-indigo-300 mt-2">{currentPage.subtitle}</h2>
-                    )}
-
-                    {currentModul.description && (
-                      <p className="text-slate-400 mt-4 text-lg leading-relaxed max-w-2xl">
-                        {currentModul.description}
-                      </p>
-                    )}
+                <section className="flex flex-col gap-6 lg:gap-8 overflow-hidden">
+                  <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/40 border border-indigo-500/20 p-6 lg:p-8 rounded-[1.5rem] lg:rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                    <p className="text-indigo-400 font-mono text-[10px] uppercase tracking-widest mb-3">Part {currentPageIndex + 1} / {currentModul.pages.length}</p>
+                    <h1 className="text-2xl lg:text-4xl font-black text-white break-words">{currentModul.title}</h1>
+                    {currentPage?.subtitle && (<h2 className="text-lg lg:text-xl font-bold text-indigo-300 mt-2">{currentPage.subtitle}</h2>)}
+                    {currentModul.description && (<p className="text-slate-400 mt-4 text-sm lg:text-lg leading-relaxed max-w-2xl">{currentModul.description}</p>)}
                   </div>
 
-                  <div className="flex flex-col gap-10">
+                  <div className="flex flex-col gap-8 lg:gap-10">
                     {currentPage?.youtubeId && (
-                      <div className="mt-8 w-full aspect-video rounded-[2rem] overflow-hidden border border-slate-800 shadow-xl">
-                        <iframe
-                          width="100%"
-                          height="100%"
-                          src={`https://www.youtube.com/embed/${getYoutubeEmbedId(currentPage.youtubeId)}`}
-                          title="YouTube video player"
-                          frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        ></iframe>
+                      <div className="w-full aspect-video rounded-2xl lg:rounded-[2rem] overflow-hidden border border-slate-800 shadow-xl">
+                        <iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${getYoutubeEmbedId(currentPage.youtubeId)}`} title="Video" frameBorder="0" allowFullScreen></iframe>
                       </div>
                     )}
+                    
                     {currentPage?.content ? (
                       currentPage.content.map((item, index) => (
-                        <div key={index} className="flex gap-5 group">
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 flex items-center justify-center text-2xl shrink-0 shadow-lg">🤖</div>
-                          <div className="flex flex-col gap-4 w-full">
+                        <div key={index} className="flex gap-3 lg:gap-5 group max-w-full">
+                          <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-xl lg:rounded-2xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 flex items-center justify-center text-xl lg:text-2xl shrink-0 shadow-lg">🤖</div>
+                          {/* // FIX: Added flex-1 min-w-0 to prevent background overflow on mobile */}
+                          <div className="flex flex-col gap-4 flex-1 min-w-0"> 
                             {item.text && (
-                              <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-[2rem] rounded-tl-sm text-slate-200 text-lg shadow-xl">
-                                <div className="prose prose-invert max-w-none"> 
+                              /* // FIX: Added overflow-x-auto to container */
+                              <div className="bg-slate-900/80 border border-slate-800 p-5 lg:p-6 rounded-2xl lg:rounded-[2rem] lg:rounded-tl-sm text-slate-200 text-sm lg:text-lg shadow-xl overflow-x-auto">
+                                <div className="prose prose-invert prose-sm lg:prose-base max-w-none break-words prose-ul:list-outside prose-li:my-1 prose-p:whitespace-normal"> 
                                   <ReactMarkdown rehypePlugins={[rehypeRaw]}>{item.text}</ReactMarkdown>
                                 </div>
                               </div>
                             )}
                             {item.code && (
-                              <div className="bg-cyan-950/20 border-l-4 border-cyan-500 p-6 rounded-r-[2rem] rounded-bl-[2rem] font-mono text-sm relative overflow-hidden">
-                                <pre className="text-cyan-300 whitespace-pre-wrap"><code>{item.code}</code></pre>
+                              <div className="bg-cyan-950/20 border-l-4 border-cyan-500 p-4 lg:p-6 rounded-r-2xl lg:rounded-r-[2rem] rounded-bl-2xl lg:rounded-bl-[2rem] font-mono text-[10px] lg:text-sm relative overflow-x-auto shadow-lg">
+                                <pre className="text-cyan-300 whitespace-pre"><code>{item.code}</code></pre>
                               </div>
                             )}
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="flex gap-5">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 flex items-center justify-center text-2xl shrink-0">🤖</div>
-                        <div className="bg-slate-900/80 border border-slate-800 p-6 rounded-[2rem] rounded-tl-sm text-slate-200 text-lg w-full shadow-xl">
-                            <ReactMarkdown rehypePlugins={[rehypeRaw]}>{currentPage?.narrative || ""}</ReactMarkdown>
+                      <div className="flex gap-3 lg:gap-5 max-w-full">
+                        <div className="w-10 h-10 lg:w-14 lg:h-14 rounded-xl lg:rounded-2xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 flex items-center justify-center text-xl lg:text-2xl shrink-0">🤖</div>
+                        {/* // FIX: Added flex-1 min-w-0 to ensure wrapper fits screen and background follows */}
+                        <div className="bg-slate-900/80 border border-slate-800 p-5 lg:p-6 rounded-2xl lg:rounded-[2rem] lg:rounded-tl-sm text-slate-200 text-sm lg:text-lg flex-1 min-w-0 shadow-xl overflow-x-auto">
+                            <div className="prose prose-invert prose-sm lg:prose-base max-w-none break-words prose-ul:list-outside prose-li:my-1 prose-p:whitespace-normal">
+                                <ReactMarkdown rehypePlugins={[rehypeRaw]}>{currentPage?.narrative || ""}</ReactMarkdown>
+                            </div>
                         </div>
                       </div>
                     )}
@@ -590,42 +541,37 @@ const ModulMateri = () => {
                 </section>
 
                 <section className="flex flex-col gap-4">
-                  <div className="bg-fuchsia-900/20 border border-fuchsia-500/30 p-6 rounded-[2rem] flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-fuchsia-600 flex items-center justify-center text-xl shrink-0">🎯</div>
-                    <div>
-                      <h4 className="text-fuchsia-400 font-black uppercase tracking-widest text-xs mb-1">Misi Kamu</h4>
-                      <p className="text-white font-medium">{currentPage?.mission || "Selesaikan tantangan di editor di bawah ini."}</p>
+                  <div className="bg-fuchsia-900/20 border border-fuchsia-500/30 p-5 lg:p-6 rounded-2xl lg:rounded-[2rem] flex items-center gap-4">
+                    <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-fuchsia-600 flex items-center justify-center text-lg lg:text-xl shrink-0">🎯</div>
+                    <div className="min-w-0">
+                      <h4 className="text-fuchsia-400 font-black uppercase tracking-widest text-[10px] mb-1">Misi Kamu</h4>
+                      <p className="text-white font-medium text-xs lg:text-sm truncate">{currentPage?.mission || "Selesaikan tantangan"}</p>
                     </div>
                   </div>
 
-                  <div className="h-[550px] rounded-[2.5rem] overflow-hidden border border-slate-800 bg-[#1e1e1e] shadow-2xl flex flex-col relative">
-                    <div className="bg-[#181818] px-8 py-4 flex justify-between items-center border-b border-slate-800">
-                        <span className="font-mono text-xs text-slate-500">main.py</span>
+                  <div className="h-[450px] lg:h-[550px] rounded-2xl lg:rounded-[2.5rem] overflow-hidden border border-slate-800 bg-[#1e1e1e] shadow-2xl flex flex-col relative">
+                    <div className="bg-[#181818] px-6 lg:px-8 py-3 lg:py-4 flex justify-between items-center border-b border-slate-800">
+                        <span className="font-mono text-[10px] text-slate-500">main.py</span>
                         {taskCompleted && <span className="text-emerald-400 text-[10px] font-black uppercase tracking-widest">✓ Selesai</span>}
                     </div>
-                    <div className="flex-1 pt-4">
+                    <div className="flex-1 pt-2">
                       <Editor 
                         defaultLanguage="python" 
                         defaultValue={code} 
                         height="100%" 
                         key={`${currentModul.id}-${currentPageIndex}`}
                         onMount={(editor) => { editorRef.current = editor; }} 
-                        options={{ fontSize: 16, minimap: { enabled: false }, automaticLayout: true }} 
+                        options={{ fontSize: window.innerWidth < 768 ? 14 : 16, minimap: { enabled: false }, automaticLayout: true, padding: {top: 10} }} 
                         theme="vs-dark"
                       />
                     </div>
                     {failCount >= 5 && (
-                      <button 
-                        onClick={() => editorRef.current?.setValue(currentPage?.answerCode || "")}
-                        className="absolute top-16 right-10 z-10 px-4 py-2 bg-amber-500 text-slate-900 rounded-xl font-bold shadow-lg animate-bounce hover:bg-amber-400 transition-all text-xs"
-                      >
-                        💡 Gunakan Hint?
-                      </button>
+                      <button onClick={() => editorRef.current?.setValue(currentPage?.answerCode || "")} className="absolute top-14 right-4 lg:right-10 z-10 px-3 py-2 bg-amber-500 text-slate-900 rounded-lg font-bold shadow-lg text-[10px] lg:text-xs">💡 Hint</button>
                     )}
-                    <button onClick={runCode} className="absolute bottom-[35%] right-10 z-10 w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-2xl flex items-center justify-center text-slate-900 shadow-2xl hover:scale-110 active:scale-95 transition-all">▶</button>
-                    <div className="h-[30%] bg-[#050505] border-t border-slate-800 p-8 font-mono text-sm overflow-y-auto">
-                      <pre className={taskCompleted ? 'text-emerald-400' : 'text-slate-300'}>{output || "Output akan muncul di sini..."}</pre>
-                      {taskCompleted && <p className="mt-4 font-bold text-emerald-300 animate-pulse">{currentPage?.successMsg}</p>}
+                    <button onClick={runCode} className="absolute bottom-[35%] right-6 lg:right-10 z-10 w-12 h-12 lg:w-16 lg:h-16 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-xl lg:rounded-2xl flex items-center justify-center text-slate-900 shadow-2xl hover:scale-110 active:scale-95 transition-all text-xl lg:text-2xl">▶</button>
+                    <div className="h-[30%] bg-[#050505] border-t border-slate-800 p-5 lg:p-8 font-mono text-[10px] lg:text-sm overflow-y-auto">
+                      <pre className={taskCompleted ? 'text-emerald-400' : 'text-slate-300'}>{output || "Output muncul di sini..."}</pre>
+                      {taskCompleted && <p className="mt-2 font-bold text-emerald-300 animate-pulse">{currentPage?.successMsg}</p>}
                     </div>
                   </div>
                 </section>
@@ -633,81 +579,45 @@ const ModulMateri = () => {
         )}
 
         <div className="flex justify-center mt-4">
-          <button onClick={handleNext} disabled={!taskCompleted} className={`px-16 py-5 rounded-2xl font-black text-sm uppercase tracking-[0.3em] transition-all shadow-2xl ${taskCompleted ? 'bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white hover:-translate-y-1' : 'bg-slate-900 text-slate-700 cursor-not-allowed'}`}>
+          <button onClick={handleNext} disabled={!taskCompleted} className={`w-full lg:w-auto px-10 lg:px-16 py-4 lg:py-5 rounded-xl lg:rounded-2xl font-black text-xs lg:text-sm uppercase tracking-[0.2em] lg:tracking-[0.3em] transition-all shadow-2xl ${taskCompleted ? 'bg-gradient-to-r from-fuchsia-600 to-indigo-600 text-white hover:-translate-y-1' : 'bg-slate-900 text-slate-700 cursor-not-allowed'}`}>
             {currentPageIndex === currentModul.pages.length - 1 && !isEvaluating ? "Mulai Evaluasi ➔" : (currentPageIndex === currentModul.pages.length - 1 && isEvaluating ? "Selesaikan Modul 🏆" : "Selanjutnya ➔")}
           </button>
         </div>
       </main>
 
+      {/* Floating Chat */}
       <div className="fixed inset-0 pointer-events-none z-[140]">
-        
-        <Draggable 
-          nodeRef={nodeRefButton} 
-          bounds="parent"
-          handle=".drag-button-handle" 
-        >
-          <div 
-            ref={nodeRefButton} 
-            className="absolute bottom-8 right-8 pointer-events-auto flex flex-col items-end"
-          >
+        <Draggable nodeRef={nodeRefButton} bounds="parent" handle=".drag-button-handle">
+          <div ref={nodeRefButton} className="absolute bottom-6 right-6 pointer-events-auto flex flex-col items-end">
             {isChatOpen && (
-              <div 
-                className="mb-4 w-80 md:w-96 h-[450px] bg-slate-900 border border-slate-800 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden"
-              >
-                <div className="bg-indigo-600 p-4 flex justify-between items-center text-white font-bold">
+              <div className="mb-4 w-[calc(100vw-3rem)] sm:w-80 md:w-96 h-[400px] lg:h-[450px] bg-slate-900 border border-slate-800 rounded-2xl lg:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden">
+                <div className="bg-indigo-600 p-4 flex justify-between items-center text-white font-bold text-sm lg:text-base">
                   <div className="flex items-center gap-2"><span>🤖</span> <span>Pynara Chat</span></div>
-                  <button onClick={() => setIsChatOpen(false)} className="hover:text-slate-200 px-2">✕</button>
+                  <button onClick={() => setIsChatOpen(false)} className="px-2">✕</button>
                 </div>
-                
                 <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-slate-950/40">
                   {messages.map((msg, idx) => (
                     <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[85%] p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
-                        <div className="prose prose-sm prose-invert max-w-none break-words overflow-hidden">
-                          <ReactMarkdown
-                            components={{
-                              code({ node, inline, className, children, ...props }) {
-                                return (
-                                  <code
-                                    className={`${className} block bg-slate-950 p-3 rounded-lg my-2 overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs border border-slate-700`}
-                                    {...props}
-                                  >
-                                    {children}
-                                  </code>
-                                );
-                              }
-                            }}
-                          >
-                            {msg.text}
-                          </ReactMarkdown>
+                      <div className={`max-w-[90%] p-3 rounded-2xl text-xs lg:text-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300'}`}>
+                        <div className="prose prose-sm prose-invert max-w-none break-words">
+                          <ReactMarkdown components={{ code({ node, inline, className, children, ...props }) { return ( <code className="block bg-slate-950 p-2 rounded my-1 overflow-x-auto text-[10px] lg:text-xs font-mono border border-slate-700" {...props}>{children}</code> ); } }}>{msg.text}</ReactMarkdown>
                         </div>
                       </div>
                     </div>
                   ))}
                   <div ref={chatEndRef} />
                 </div>
-
-                <form onSubmit={handleSendMessage} className="p-4 bg-slate-900 flex gap-2 border-t border-slate-800">
-                  <input 
-                    value={chatInput} 
-                    onChange={(e) => setChatInput(e.target.value)} 
-                    placeholder="Tanya Pynara..." 
-                    className="flex-1 bg-slate-800 rounded-xl px-4 py-2 text-white outline-none focus:ring-1 focus:ring-indigo-500" 
-                  />
-                  <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-xl">➔</button>
+                <form onSubmit={handleSendMessage} className="p-3 lg:p-4 bg-slate-900 flex gap-2 border-t border-slate-800">
+                  <input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Tanya..." className="flex-1 bg-slate-800 rounded-xl px-4 py-2 text-white text-sm outline-none focus:ring-1 focus:ring-indigo-500" />
+                  <button type="submit" className="bg-indigo-600 text-white px-3 py-2 rounded-xl text-sm">➔</button>
                 </form>
               </div>
             )}
-
-            <button 
-              onClick={() => setIsChatOpen(!isChatOpen)} 
-              className="drag-button-handle w-16 h-16 rounded-2xl flex items-center justify-center text-3xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 text-white shadow-xl hover:scale-105 active:scale-95 transition-transform cursor-grab active:cursor-grabbing"
-            >
+            <button onClick={() => setIsChatOpen(!isChatOpen)} className="drag-button-handle w-14 h-14 lg:w-16 lg:h-16 rounded-xl lg:rounded-2xl flex items-center justify-center text-2xl lg:text-3xl bg-gradient-to-tr from-indigo-600 to-fuchsia-600 text-white shadow-xl hover:scale-105 active:scale-95 transition-transform cursor-grab">
               {isChatOpen ? '✕' : '💬'}
             </button>
           </div>
         </Draggable>
-
       </div>
     </div>
   );
