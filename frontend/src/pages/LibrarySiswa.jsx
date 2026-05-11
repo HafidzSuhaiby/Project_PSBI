@@ -145,7 +145,7 @@ const LibrarySiswa = () => {
                   
                   <div className="mt-4 flex items-center gap-2">
                     <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-2 py-1 rounded-md font-mono uppercase tracking-wider">
-                      Modul Terstruktur ✨
+                      Modul Terstruktur
                     </span>
                   </div>
                 </Link>
